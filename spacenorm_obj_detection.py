@@ -1,4 +1,4 @@
-"""spacenorm_yolo.py
+"""spacenorm_obj_detection.py
 
 This script demonstrates how to do real-time object detection with
 Ultralytics YOLOv11 model.

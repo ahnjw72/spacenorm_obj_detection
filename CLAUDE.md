@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**spacenorm_yolo** is a real-time human occupancy detection system based on Ultralytics YOLOv11, processing CCTV RTSP streams to detect people and report occupancy events to the Spacenorm API. It supports multiple client sites and deploys as a Docker Swarm service on edge GPU nodes.
+**spacenorm_obj_detection** is a real-time human occupancy detection system based on Ultralytics YOLOv11, processing CCTV RTSP streams to detect people and report occupancy events to the Spacenorm API. It supports multiple client sites and deploys as a Docker Swarm service on edge GPU nodes.
 
-This project is a focused inference-only service. Training, model export, and file-based (video/image/NVR) inference are out of scope — see the sibling project `spacenorm_yolov7` for those workflows.
+This project is a focused inference-only service. Training, model export, and file-based (video/image/NVR) inference are out of scope — see the sibling project `spacenorm_obj_detectionv7` for those workflows.
 
 ## Commands
 
@@ -18,7 +18,7 @@ SPACENORM_DEFAULT_CFG_FILE=./spacenorm_cfg/behavior/default.json \
 SPACENORM_SERVER_CFG_FILE=./spacenorm_cfg/behavior/overrides/cym.json \
 SPACENORM_SENSOR_CFG_FILE=./spacenorm_cfg/cctv/cctv_cym.json \
 SPACENORM_DEVICEKEY_FILE=./spacenorm_cfg/cctv/cctv_cym.keys \
-python -u -m spacenorm_yolo.spacenorm_yolo
+python -u -m spacenorm_obj_detection.spacenorm_obj_detection
 ```
 
 ### Docker Deployment
@@ -61,7 +61,7 @@ RTSP Stream → GStreamer Frame Queue
 
 | File | Purpose |
 |------|---------|
-| `spacenorm_yolo.py` | Main Flask service: multi-threaded RTSP processing, MQTT reporting, web streaming |
+| `spacenorm_obj_detection.py` | Main Flask service: multi-threaded RTSP processing, MQTT reporting, web streaming |
 | `utils/yolo_inference.py` | Ultralytics YOLO model wrapper and annotation |
 | `utils/post_processing.py` | ROI filtering, background detection, size filtering |
 | `utils/cctv_camera.py` | RTSP camera stream handling (GStreamer) |
@@ -109,10 +109,10 @@ Each camera entry in `cctv_<server>.json` specifies `device_id`, `uri` (RTSP), `
 ### Docker Swarm Deployment
 
 - Image registry: AWS ECR (`159552820182.dkr.ecr.ap-northeast-2.amazonaws.com`)
-- Standard image: `spacenorm_yolo:latest`
+- Standard image: `spacenorm_obj_detection:latest`
 - Stack template: `docker_swarm/stack.yml.template` — rendered per-server by `deploy_yolov7.sh`
-- Service runs `global` mode, constrained to nodes labeled `server=<name>` and `spacenorm_yolo=true`
-- Configs injected at `/app/spacenorm_yolo/spacenorm_cfg/...` inside the container
+- Service runs `global` mode, constrained to nodes labeled `server=<name>` and `spacenorm_obj_detection=true`
+- Configs injected at `/app/spacenorm_obj_detection/spacenorm_cfg/...` inside the container
 - Ports: 8081 (web streaming), 9000 (Prometheus metrics)
 - Logs: json-file driver, max 100MB × 3 files
 

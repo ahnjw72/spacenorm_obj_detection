@@ -1,8 +1,8 @@
-# spacenorm_yolo
+# spacenorm_obj_detection
 
 Real-time human occupancy detection service for CCTV RTSP streams, powered by [Ultralytics YOLOv11](https://github.com/ultralytics/ultralytics). Detects people in each camera frame, applies ROI masking and background subtraction, and reports occupancy counts to the Spacenorm API via REST and MQTT.
 
-This project is an inference-only service refactored from `spacenorm_yolov7`. Training and file-based (video/image/NVR) inference are out of scope.
+This project is an inference-only service refactored from `spacenorm_obj_detectionv7`. Training and file-based (video/image/NVR) inference are out of scope.
 
 ---
 
@@ -35,7 +35,7 @@ SPACENORM_DEFAULT_CFG_FILE=./spacenorm_cfg/behavior/default.json \
 SPACENORM_SERVER_CFG_FILE=./spacenorm_cfg/behavior/overrides/cym.json \
 SPACENORM_SENSOR_CFG_FILE=./spacenorm_cfg/cctv/cctv_cym.json \
 SPACENORM_DEVICEKEY_FILE=./spacenorm_cfg/cctv/cctv_cym.keys \
-python -u -m spacenorm_yolo.spacenorm_yolo
+python -u -m spacenorm_obj_detection.spacenorm_obj_detection
 ```
 
 ---
@@ -65,8 +65,8 @@ Types 1, 2, 3 are filtered as background.
 ## Project Structure
 
 ```
-spacenorm_yolo/
-├── spacenorm_yolo.py          # Main service entry point
+spacenorm_obj_detection/
+├── spacenorm_obj_detection.py          # Main service entry point
 ├── __init__.py
 ├── utils/
 │   ├── yolo_inference.py      # Ultralytics YOLO model wrapper
@@ -152,7 +152,7 @@ docker service logs -f spacenorm_detector
 ```
 
 - Registry: AWS ECR (`159552820182.dkr.ecr.ap-northeast-2.amazonaws.com`)
-- Image: `spacenorm_yolo:latest`
+- Image: `spacenorm_obj_detection:latest`
 - Stack template: `docker_swarm/stack.yml.template`
-- Node constraints: `server=<name>` and `spacenorm_yolo=true`
+- Node constraints: `server=<name>` and `spacenorm_obj_detection=true`
 - Ports: 8081 (web UI), 9000 (Prometheus)

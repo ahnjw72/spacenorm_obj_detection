@@ -6,7 +6,7 @@
 #  2) Checks there is a UID=1000 and GID=1000 on the system (as requested)
 #  3) Checks manager reachability on tcp/2377
 #  4) Ensures firewall allows: 7946/tcp, 7946/udp, 4789/udp (best-effort for ufw/firewalld; otherwise prints guidance)
-#  5) Ensures /var/log/spacenorm_yolov7 exists
+#  5) Ensures /var/log/spacenorm_obj_detection exists
 #  6) Edits /etc/docker/daemon.json to embed NVIDIA runtime + default-runtime=nvidia (JSON-safe merge)
 #  7) Verifies GPU via Docker + PyTorch (torch.cuda.is_available())
 #  8) Joins Docker Swarm (only if not already active)
@@ -26,7 +26,7 @@ MANAGER_PORT="${MANAGER_PORT:-2377}"
 MANAGER_ADDR="${MANAGER_ADDR:-${MANAGER_IP}:${MANAGER_PORT}}"
 JOIN_TOKEN="${JOIN_TOKEN:-SWMTKN-1-257c7lja5lzy47d8z7zryw0lwgff6shmxqtu91aosjl8aiwsyk-0g8971tut6z70xp05mxag61xp}"
 
-LOG_DIR="/var/log/spacenorm_yolov7"
+LOG_DIR="/var/log/spacenorm_obj_detection"
 DAEMON_JSON="/etc/docker/daemon.json"
 
 SKIP_GPU_TEST="${SKIP_GPU_TEST:-0}"

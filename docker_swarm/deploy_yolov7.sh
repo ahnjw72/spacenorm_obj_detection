@@ -51,7 +51,7 @@ fi
 # echo "ECR login succeeded"
 
 if [[ " ${SERVICE_GROUP1[*]} " =~ " ${SERVICE_NAME} " ]]; then
-    REPOSITORY_NAME="spacenorm_yolov7"
+    REPOSITORY_NAME="spacenorm_obj_detection"
     IMG_DIGEST=$(aws ecr describe-images \
       --region "${AWS_REGION}" \
       --repository-name "$REPOSITORY_NAME" \
@@ -59,15 +59,15 @@ if [[ " ${SERVICE_GROUP1[*]} " =~ " ${SERVICE_NAME} " ]]; then
       --query 'imageDetails[0].imageDigest' \
       --output text)
     export DOCKER_IMAGE="159552820182.dkr.ecr."${AWS_REGION}".amazonaws.com/${REPOSITORY_NAME}@${IMG_DIGEST}"
-    #export DOCKER_IMAGE="ahnjw72/spacenorm_yolov7:cu128"
+    #export DOCKER_IMAGE="ahnjw72/spacenorm_obj_detection:cu128"
     echo "DOCKER_IMAGE is set to: ${DOCKER_IMAGE}"
 elif [[ " ${SERVICE_GROUP2[*]} " =~ " ${SERVICE_NAME} " ]]; then
-    # export DOCKER_IMAGE="ahnjw72/spacenorm_yolov7_blackwell:latest"
+    # export DOCKER_IMAGE="ahnjw72/spacenorm_obj_detection_blackwell:latest"
 
-    # REPOSITORY_NAME="spacenorm_yolov7_blackwell"
+    # REPOSITORY_NAME="spacenorm_obj_detection_blackwell"
     # IMAGE_TAG="latest"
 
-    REPOSITORY_NAME="spacenorm_yolov7"
+    REPOSITORY_NAME="spacenorm_obj_detection"
 
     IMG_DIGEST=$(aws ecr describe-images \
       --region "${AWS_REGION}" \
@@ -76,16 +76,16 @@ elif [[ " ${SERVICE_GROUP2[*]} " =~ " ${SERVICE_NAME} " ]]; then
       --query 'imageDetails[0].imageDigest' \
       --output text)
     export DOCKER_IMAGE="159552820182.dkr.ecr."${AWS_REGION}".amazonaws.com/${REPOSITORY_NAME}@${IMG_DIGEST}"
-    #export DOCKER_IMAGE="ahnjw72/spacenorm_yolov7:cu128"
+    #export DOCKER_IMAGE="ahnjw72/spacenorm_obj_detection:cu128"
     echo "DOCKER_IMAGE is set to: ${DOCKER_IMAGE}"
 else
-    echo "Error: '${SERVICE_NAME}' is not a valid server name for spacenorm_yolov7 service."
+    echo "Error: '${SERVICE_NAME}' is not a valid server name for spacenorm_obj_detection service."
     exit 1
 fi
 
-CFG_BASE_DIR="/home/cym/Work/spacenorm_yolov7/spacenorm_cfg"
-export CFG_BASE_DIR_IN_CONTAINER="/app/spacenorm_yolov7/spacenorm_cfg"
-STACK_NAME="spacenorm_yolov7"
+CFG_BASE_DIR="/home/cym/Work/spacenorm_obj_detection/spacenorm_cfg"
+export CFG_BASE_DIR_IN_CONTAINER="/app/spacenorm_obj_detection/spacenorm_cfg"
+STACK_NAME="spacenorm_obj_detection"
 TEMPLATE="stack.yml.template"
 RENDERED="stack_${SERVICE_NAME}.yml"
 
@@ -145,12 +145,12 @@ fi
 # Special service for car detection for "kumho" --> this is temporary before api based config retrieval is implemented
 if [ "${SERVICE_NAME}" == "kumho_car" ]; then
     export SERVER="kumho"
-    export LOG_DIR_NAME="spacenorm_yolov7_car"
+    export LOG_DIR_NAME="spacenorm_obj_detection_car"
     export PORT1="8082"
     export PORT2="9003"
 else
     export SERVER="${SERVICE_NAME}"
-    export LOG_DIR_NAME="spacenorm_yolov7"
+    export LOG_DIR_NAME="spacenorm_obj_detection"
     export PORT1="8081"
     export PORT2="9000"
 fi

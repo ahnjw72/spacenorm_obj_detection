@@ -3,7 +3,6 @@ version: "3.8"
 services:
   ${SERVICE_NAME}:
 #   image: python:3.12-slim
-#    image: ahnjw72/spacenorm_yolov7:latest
     image: ${DOCKER_IMAGE}
 
     ports:
@@ -34,7 +33,7 @@ services:
         target: ${CFG_BASE_DIR_IN_CONTAINER}/cctv/cctv_${SERVICE_NAME}.keys
         mode: 0444
 
-    command: ["python", "-u", "-m", "spacenorm_yolov7.spacenorm_yolov7"]
+    command: ["python", "-u", "-m", "spacenorm_obj_detection.spacenorm_obj_detection"]
     #command: ["tail", "-f", "/dev/null"]
 
     environment:
@@ -74,7 +73,7 @@ services:
       placement:
         constraints:
           - node.labels.server == ${SERVER}
-          - node.labels.spacenorm_yolov7 == true
+          - node.labels.spacenorm_obj_detection == true
 
       # Similar to `--restart unless-stopped` (Swarm always restarts tasks unless you remove the service)
       restart_policy:

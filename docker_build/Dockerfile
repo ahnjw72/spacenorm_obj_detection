@@ -193,19 +193,19 @@ RUN pip install --no-cache-dir \
     requests \
     tqdm \
     flask \
-    pymediainfo \
+    ultralytics \
     psutil
 
 # Sanity check: ensure cv2 with GStreamer is importable
 RUN python3 -c "import cv2; print('[OK] cv2', cv2.__version__, '| GStreamer:', cv2.getBuildInformation().split('GStreamer:')[1].split()[0])"
 
 # Source code (spacenorm_cfg is excluded — injected at runtime by Docker Swarm)
-COPY spacenorm_yolov7 /app/spacenorm_yolov7
+COPY spacenorm_obj_detection /app/spacenorm_obj_detection
 
-# Model weights
-COPY spacenorm_yolov7.pt /app/spacenorm_yolov7/
-COPY yolov7-w6.pt        /app/spacenorm_yolov7/
+# Model weights — update the filename below to match your actual YOLOv11 .pt file
+# and update docker_build.sh to copy the file into the build context first.
+COPY spacenorm_obj_detection_build.pt /app/spacenorm_obj_detection/spacenorm_obj_detection.pt
 
-RUN mkdir -p /app/spacenorm_yolov7/temp
+RUN mkdir -p /app/spacenorm_obj_detection/temp
 
 CMD ["python3"]
