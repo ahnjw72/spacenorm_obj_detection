@@ -1,0 +1,28 @@
+<html>
+  <head>
+    <title>Frame Generation Test</title>
+  </head>  
+
+  <body>
+    <h1>Frame Generation Test</h1>
+  </body>
+
+  <form name="key_form" action="/" method="GET">
+    <select name="cctv_key" method="GET" action="/">
+      <option value="{{keys[0]}}" selected>{{keys[0]}}</option>
+      {% for key in keys[1:] %}
+        <option value="{{key}}">{{key}}</option>
+      {% endfor %}
+    </select>
+    <br />
+    <label>When </label><input type="text" name="when" placeholder="YYYYMMDDhhmm"><br />
+    <input type="submit" value="제출" onclick="history.go(-1);">
+
+  </form>
+
+  <body>
+    <img src="{{ url_for('video_feed') }}">
+  </body>
+
+
+</html>

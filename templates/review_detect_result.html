@@ -1,0 +1,28 @@
+<html>
+  <head>
+    <title>Spacenorm Human Occupancy Detection: Review Detection Result</title>
+  </head>  
+
+  <body>
+    <h1>Spacenorm Human Occupancy Detection: Review Detection Result</h1>
+  </body>
+
+  <body>
+    <video width="1280" height="1024" controls>
+      <!-- <source src={{file}} type="video/mp4"> -->
+      <source src={{ url_for('static', filename=file) }} type="video/mp4">
+      <!-- <source src={{ file }} type="video/mp4"> -->
+      <!-- <source src={{ url_for('static', filename="tmp/O57FAG3O.mp4") }} type="video/mp4"> -->
+      Your browser does not support the video tag.
+    </video>
+
+    <p>
+      <a href="{{ url_for('download_detect_nvr_file_result', detection_result_filepath=file) }}">Download detection result video</a>
+    </p>
+
+    <p>
+      <a href="{{ url_for('download_yolo_data', detection_result_filepath=file) }}">Download YOLO compatible data for this video</a>
+    </p>
+  </body>
+
+</html>

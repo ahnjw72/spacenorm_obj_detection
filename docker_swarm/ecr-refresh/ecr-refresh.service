@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh AWS ECR Docker Credentials and Docker Swarm Service Updates
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/ecr-refresh-update.sh
+# Optional: Run as a specific user if needed
+# User=admin

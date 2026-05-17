@@ -1,0 +1,11 @@
+[Unit]
+Description=Run ECR Refresh every 1 hours
+
+[Timer]
+# Run 5 minutes after boot, then every 1 hours
+OnBootSec=5min
+OnUnitActiveSec=1h
+Unit=ecr-refresh.service
+
+[Install]
+WantedBy=timers.target

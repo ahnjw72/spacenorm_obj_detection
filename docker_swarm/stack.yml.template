@@ -1,0 +1,114 @@
+version: "3.8"
+
+services:
+  ${SERVICE_NAME}:
+#   image: python:3.12-slim
+#    image: ahnjw72/spacenorm_yolov7:latest
+    image: ${DOCKER_IMAGE}
+
+    ports:
+      - target: ${PORT1}
+        published: ${PORT1}
+        protocol: tcp
+        mode: host
+
+      - target: ${PORT2}
+        published: ${PORT2}
+        protocol: tcp
+        mode: host
+
+    configs:
+      - source: default_cfg
+        target: ${CFG_BASE_DIR_IN_CONTAINER}/behavior/default.json
+        mode: 0444
+
+      - source: override_cfg
+        target: ${CFG_BASE_DIR_IN_CONTAINER}/behavior/overrides/${SERVICE_NAME}.json
+        mode: 0444
+
+      - source: cctv_cfg
+        target: ${CFG_BASE_DIR_IN_CONTAINER}/cctv/cctv_${SERVICE_NAME}.json
+        mode: 0444
+
+      - source: cctv_key
+        target: ${CFG_BASE_DIR_IN_CONTAINER}/cctv/cctv_${SERVICE_NAME}.keys
+        mode: 0444
+
+    command: ["python", "-u", "-m", "spacenorm_yolov7.spacenorm_yolov7"]
+    #command: ["tail", "-f", "/dev/null"]
+
+    environment:
+      TZ: Asia/Seoul
+      OPENCV_LOG_LEVEL: ERROR
+
+      # Match your docker run envs
+      SPACENORM_SERVER_ID: ${SERVER}
+      SPACENORM_DEFAULT_CFG_FILE: ${CFG_BASE_DIR_IN_CONTAINER}/behavior/default.json
+      SPACENORM_SERVER_CFG_FILE: ${CFG_BASE_DIR_IN_CONTAINER}/behavior/overrides/${SERVICE_NAME}.json
+      SPACENORM_SENSOR_CFG_FILE: ${CFG_BASE_DIR_IN_CONTAINER}/cctv/cctv_${SERVICE_NAME}.json
+      SPACENORM_DEVICEKEY_FILE: ${CFG_BASE_DIR_IN_CONTAINER}/cctv/cctv_${SERVICE_NAME}.keys
+      SPACENORM_LOG_DIR: /var/log/${LOG_DIR_NAME}
+      SPACENORM_RECORD_DETECTION_RESULT_DIR: /var/log/${LOG_DIR_NAME}/detection_results
+
+      # Swarm doesn't support `docker run --gpus all` in the same way.
+      # These envs help when NVIDIA Container Runtime is configured on the node.
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+
+    volumes:
+      - type: bind
+        source: /var/log/${LOG_DIR_NAME}
+        target: /var/log/${LOG_DIR_NAME}
+
+    # Equivalent to: --log-driver json-file --log-opt max-size=100m --log-opt max-file=3
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+    deploy:
+      mode: global
+      #mode: replicated
+      #replicas: 1
+      placement:
+        constraints:
+          - node.labels.server == ${SERVER}
+          - node.labels.spacenorm_yolov7 == true
+
+      # Similar to `--restart unless-stopped` (Swarm always restarts tasks unless you remove the service)
+      restart_policy:
+        condition: any
+        delay: 5s
+
+      update_config:
+        parallelism: 1
+        delay: 2s
+        order: stop-first
+        failure_action: rollback
+
+      rollback_config:
+        parallelism: 1
+        delay: 2s
+        order: stop-first
+
+# Special service for car detection for "kumho" --> this is temporary before api based config retrieval is implemented
+
+
+# REQUIRED: declare configs used by services
+configs:
+  default_cfg:
+    external: true
+    name: ${DEFAULT_CFG_NAME}
+
+  override_cfg:
+    external: true
+    name: ${OVERRIDE_CFG_NAME}
+
+  cctv_cfg:
+    external: true
+    name: ${CCTV_CFG_NAME}
+
+  cctv_key:
+    external: true
+    name: ${CCTV_KEY_NAME}

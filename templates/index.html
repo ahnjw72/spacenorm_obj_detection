@@ -1,0 +1,21 @@
+<html>
+  <head>
+    <title>Spacenorm Human Occupancy Detection</title>
+  </head>
+  
+  <form name="key_form" action="/" method="GET">
+    <select name="cctv_key" method="GET" action="/">
+      <option value="{{keys[0]}}" selected>{{keys[0]}}</option>
+      {% for key in keys[1:] %}
+        <option value="{{key}}">{{key}}</option>
+      {% endfor %}
+    </select>
+    <input type="submit" value="제출" onclick="history.go(-1);">
+  </form>
+
+  <body>
+    <h1>Spacenorm Human Occupancy Detection</h1>
+    <img src="{{ url_for('video_feed') }}">
+  </body>
+
+</html>

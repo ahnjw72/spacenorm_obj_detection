@@ -1,0 +1,35 @@
+
+======================================================================================================================
+2026.04.21) 원치 않는 부작용이 있어서 (한 노드에서 이미지 문제로 서비스 런칭이 fail됐을때 다른 멀쩡한 노드까지 서비스 재시작) 당분간 disable시킴.
+(참고: https://claude.ai/share/ceccfdc0-07e1-42b5-b377-efae70b759ce   <-- 'culprit' 검색)
+
+[ AWS ECR login info and (possibly) docker image refresh service ]
+
+----------------------------------------------------------------------------------------------------------------------
+If you change...            | Run this command          | Why?
+----------------------------------------------------------------------------------------------------------------------
+The script code (.sh file)  | Nothing                   | The service reads the file from disk every time it starts.
+The Service file (.service) | systemctl daemon-reload   | To tell systemd to look at the new configuration file.
+The Timer file (.timer)     | systemctl daemon-reload   | To update the frequency (e.g., changing 8h to 4h).
+----------------------------------------------------------------------------------------------------------------------
+
+
+* Source codes for AWS ECR login info refresh service: 
+/etc/systemd/system/ecr-refresh.timer : Periodically launches ecr-refresh.service
+/etc/systemd/system/ecr-refresh.service : Runs ecr-refresh-update.sh
+/etc/systemd/system/ecr-refresh.service.d/override.conf : Set the env variable so that the aws uses credentials and config file under /home/cym/.aws
+                                                         (Edit by $ sudo systemctl edit ecr-refresh.service)
+/usr/local/bin/ecr-refresh-update.sh : Actual script for the periodic ecr-refresh service 
+                                      (manual force update : $sudo /usr/local/bin/ecr-refresh-update.sh)
+
+
+* Manually start the timer service:
+$ sudo systemctl daemon-reload
+$ sudo systemctl enable --now ecr-refresh.timer 
+
+* Manually re-start the timer service when either .service or .timer file is updated:
+$ sudo systemctl daemon-reload
+$ sudo systemctl restart ecr-refresh.timer 
+
+======================================================================================================================
+

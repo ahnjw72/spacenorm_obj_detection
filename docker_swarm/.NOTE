@@ -1,0 +1,43 @@
+
+========================================================================================
+Docker swarm을 이용한 서비스 런칭
+
+$ ./deploy_service.sh <server_name>
+<-- server_name is one of cym, yujin, kumho, kumho_car, asia_ansung, jaeil_robot, etc.
+
+------
+
+Docker swarm 관련 유용한 명령어들
+
+Show all the nodes in a docker swarm:
+$ docker node ls
+
+Show labels for all nodes:
+$ docker node ls -q | xargs -n1 docker node inspect \
+  --format '{{ .Description.Hostname }}  {{ .Spec.Labels }}'
+
+Add label to a node:
+$ docker node update --label-add key=value <node-id>
+
+Remove label from a node:
+$ docker node update --label-rm key <node-id>
+
+Remove a service:
+$ docker service rm <service-name>
+
+Filter services by node label:
+$ docker service ls --filter 'node.labels.key=value'
+
+Filter tasks by node label:
+$ docker service ps <service-name> --filter 'node.labels.key=value'
+
+Remove all the services deployed by "docker stack deploy"
+$ docker stack rm <stack-name>
+
+Check Repo Digest of the image a certain container is created by
+$ docker inspect <container_id> | grep sha
+
+Check the error status for a service
+$ docker service ps <service_name> --no-trunc
+========================================================================================
+

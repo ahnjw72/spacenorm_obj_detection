@@ -1,0 +1,26 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>NVR File Detection Result</title>
+  </head>
+
+  <body>
+
+    <!-- <h1>[ NVR File Detection Result ] ({{selected_key}} : {{time_of_interest}}) </h1> -->
+
+    <p>[ NVR File Detection Result ]</p>
+    <p>{{selected_key}} : {{time_of_interest}}</p>
+
+    <p>RED: Person (high movement)</p>
+    <p>GREEN: Person (low movement but high confidence)</p>
+    <p>BLUE: Background (low movement and low confidence)</p>
+    <p>BLACK: Background (lower movement)</p>
+
+    <img src="{{ url_for('detect_nvr_feed', selected_key=selected_key, filepath=path, toi=time_of_interest, detection_result_file_name_header=detection_result_file_name_header, download_check=download_check) }}" style='width:100%;height:auto;'>
+    
+    <p>
+    <a href="{{ url_for('review_detect_nvr_file_result', detection_result_file_name_header=detection_result_file_name_header) }}">Review Detection Result File</a>
+    </p>
+
+  </body>
+</html>

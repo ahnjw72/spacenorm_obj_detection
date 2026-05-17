@@ -1,0 +1,4 @@
+# Exclude unnecessary files and directories
+*
+!Dockerfile
+!spacenorm_yolov7.pt

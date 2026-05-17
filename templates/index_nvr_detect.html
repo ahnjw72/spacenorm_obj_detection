@@ -1,0 +1,126 @@
+<html>
+  <head>
+    <title>Spacenorm Human Occupancy Detection (NVR Server File)</title>
+  </head>
+  
+  <body>
+    <h1>Spacenorm Human Occupancy Detection (NVR Server File)</h1>
+
+    
+    <form name="key_form" action="/" method="GET">
+      <table>
+        <tr>
+          <td>
+            <label style="color:rgb(111,0,255);font-size:18px;font-weight:700">Where</label>
+          </td>
+          <td style="padding-left:20px;">
+            <select name="cctv_key" method="GET" action="/" style="width:250px;height:40px;font-size:20px;">
+              <option value="{{keys[0]}}" selected>{{keys[0]}}</option>
+              {% for key in keys[1:] %}
+                <option value="{{key}}">{{key}}</option>
+              {% endfor %}
+            </select>
+          </td>
+        </tr>
+
+        <tr>
+          <td>
+            <label style="color:rgb(111,0,255);font-size:18px;font-weight:700">When</label>
+          </td>
+          <td style="padding-left:20px;">
+            <input type="text" name="when" placeholder="YYYYMMDDhhmm" style="width:250px;height:40px;font-size:20px;"><br />
+          </td>         
+        </tr>
+
+        <tr height = 30px></tr>
+
+        <tr>
+          <td>
+            <label style="color:rgb(0,0,255);font-size:18px;font-weight:700">remove background bb</label>
+          </td>
+          <td style="padding-left:20px;">
+            <input type="checkbox" name="remove_bg_bb" value="remove" style="width:20px;height:20px" checked><br />
+          </td>
+        </tr>
+
+        <tr>
+          <td>
+            <label style="color:rgb(0,0,255);font-size:18px;font-weight:700">conf_thresh</label>
+          </td>
+          <td style="padding-left:20px;">
+            <input type="text" name="conf_thresh" placeholder="0.452" style="width:250px;height:40px;font-size:20px;"><br />
+          </td>         
+        </tr>
+
+        <tr>
+          <td>
+            <label style="color:rgb(0,0,255);font-size:18px;font-weight:700">conf_thresh1_bg</label>
+          </td>
+          <td style="padding-left:20px;">
+            <input type="text" name="conf_thresh1_bg" placeholder="0.7" style="width:250px;height:40px;font-size:20px;"><br />
+          </td>         
+        </tr>
+
+        <tr>
+          <td>
+            <label style="color:rgb(0,0,255);font-size:18px;font-weight:700">conf_thresh2_bg</label>
+          </td>
+          <td style="padding-left:20px;">
+            <input type="text" name="conf_thresh2_bg" placeholder="0.95" style="width:250px;height:40px;font-size:20px;"><br />
+          </td>         
+        </tr>
+
+        <tr>
+          <td>
+            <label style="color:rgb(0,0,255);font-size:18px;font-weight:700">bg_thresh1</label>
+          </td>
+          <td style="padding-left:20px;">
+            <input type="text" name="bg_thresh1" placeholder="1.0" style="width:250px;height:40px;font-size:20px;"><br />
+          </td>         
+        </tr>
+
+        <tr>
+          <td>
+            <label style="color:rgb(0,0,255);font-size:18px;font-weight:700">bg_thresh2</label>
+          </td>
+          <td style="padding-left:20px;">
+            <input type="text" name="bg_thresh2" placeholder="0.2" style="width:250px;height:40px;font-size:20px;"><br />
+          </td>         
+        </tr>
+
+        <tr>
+          <td>
+            <label style="color:rgb(0,0,255);font-size:18px;font-weight:700">bg_thresh3</label>
+          </td>
+          <td style="padding-left:20px;">
+            <input type="text" name="bg_thresh3" placeholder="0.11" style="width:250px;height:40px;font-size:20px;"><br />
+          </td>         
+        </tr>
+
+      </table>
+      <br />
+      <input type="submit" value="Start Detection" style="font-size:18px">
+      <!-- <input type="submit" value="Start Detection" onclick="history.go(-1);"> -->
+    </form>
+    
+<!--     <label style="color:rgb(111,0,255);font-size:18px;font-weight:700"> {{where_str}} </label>
+    <label style="color:rgb(111,0,255);font-size:18px;font-weight:700"> {{when_str}} </label> -->
+
+    <!-- <form method="POST" action="test">
+      <input type="range" min="0" max="500" name="name_of_slider" />
+      <input type="submit" value="submit" />
+    </form> -->
+
+   <!--  <body>
+      <video width="1024" height="768" controls>
+        <source src={{ url_for('static', filename="cym.mp4") }} type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+    </body> -->
+
+    <br />
+    <br />
+  </body>
+
+
+</html>
