@@ -36,6 +36,9 @@ from .utils.spacenorm_api import Spacenorm_API
 from .utils.kakao_messaging import refreshToken, kakaoMsgSend
 
 from .utils.post_processing import remove_outside_ROI, select_car_related_results, filter_only_person, filter_small_objects, check_bb_on_background
+from ultralytics.utils import SETTINGS
+SETTINGS.update({'sync': False})
+
 from .utils.yolo_inference import make_yolo_annotation_file, create_yolo_model, yolo_inference_image, record_detection_result
 from .utils.config_loader import SpacenormConfigLoader
 
