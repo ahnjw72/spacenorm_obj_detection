@@ -229,7 +229,7 @@ def get_gst_pipeline(uri, latency=200, timeout_ms=5000):
         "appsink drop=true max-buffers=1"   # 5. Drop old frames so you don't lag
     )
 
-def open_rtsp_universal(key, uri, timeout_ms=3000): # Try to open RTSP stream with multiple backends (2026.01.09)
+def open_rtsp_universal(key, uri, timeout_ms=10000): # Try to open RTSP stream with multiple backends (2026.01.09)
     # 1. Try GStreamer (Optimized)
     logger.debug(f"[{key}] Attempting GStreamer: {uri}")
     pipeline = get_gst_pipeline(uri)
