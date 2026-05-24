@@ -36,7 +36,7 @@ log_backup/
 temp/
 inference/
 docker_build/spacenorm_anomaly_detect/
-docker_build/spacenorm_yolov7/
+docker_build/spacenorm_obj_detection/
 deprecated_docker_shared/
 docker_swarm/*.yml
 

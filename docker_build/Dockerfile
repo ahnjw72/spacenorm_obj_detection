@@ -196,8 +196,14 @@ RUN pip install --no-cache-dir \
     ultralytics \
     psutil
 
-# Sanity check: ensure cv2 with GStreamer is importable
-RUN python3 -c "import cv2; print('[OK] cv2', cv2.__version__, '| GStreamer:', cv2.getBuildInformation().split('GStreamer:')[1].split()[0])"
+# ultralytics pulls in opencv-python (no GStreamer) which overwrites the
+# custom-built cv2 from the builder stage.  Remove it so Python falls back
+# to the GStreamer-enabled .so we installed from the builder tarball.
+RUN pip uninstall -y opencv-python opencv-python-headless opencv-contrib-python 2>/dev/null || true
+
+# Sanity check: ensure cv2 with GStreamer is importable and actually enabled.
+# Exit non-zero (failing the build) if GStreamer support is missing.
+RUN python3 -c "import cv2, sys; gst = cv2.getBuildInformation().split('GStreamer:')[1].split()[0]; print(f'[OK] cv2 {cv2.__version__} | GStreamer: {gst}'); sys.exit(0 if gst == 'YES' else 1)"
 
 # Source code (spacenorm_cfg is excluded — injected at runtime by Docker Swarm)
 COPY spacenorm_obj_detection /app/spacenorm_obj_detection

@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(grep -E \"\\\\.py$\")",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Read(//home/cym/Work/spacenorm_yolov7/spacenorm_yolov7/**)",
+      "Read(//home/cym/Work/spacenorm_yolov7/**)"
     ]
   }
 }
