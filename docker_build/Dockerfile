@@ -194,7 +194,11 @@ RUN pip install --no-cache-dir \
     tqdm \
     flask \
     ultralytics \
-    psutil
+    psutil \
+    "onnx>=1.12.0,<2.0.0" \
+    onnxslim \
+    onnxruntime-gpu \
+    tensorrt-cu12
 
 # ultralytics pulls in opencv-python (no GStreamer) which overwrites the
 # custom-built cv2 from the builder stage.  Remove it so Python falls back
