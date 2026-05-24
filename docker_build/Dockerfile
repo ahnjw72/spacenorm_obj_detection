@@ -194,11 +194,22 @@ RUN pip install --no-cache-dir \
     tqdm \
     flask \
     ultralytics \
-    psutil \
+    psutil
+
+# TensorRT export pipeline.
+# tensorrt-cu12 (and/or ultralytics transitive deps) can pull in plain
+# onnxruntime (CPU build) which pip treats as conflicting with onnxruntime-gpu,
+# silently dropping the GPU build.  Installing tensorrt first and then
+# force-reinstalling the ONNX stack last guarantees onnxruntime-gpu wins.
+RUN pip install --no-cache-dir tensorrt-cu12
+
+RUN pip install --no-cache-dir --force-reinstall \
     "onnx>=1.12.0,<2.0.0" \
     onnxslim \
-    onnxruntime-gpu \
-    tensorrt-cu12
+    onnxruntime-gpu
+
+# Verify the ONNX/TRT stack is intact — fail the build if anything is missing.
+RUN python3 -c "import onnx, onnxslim, onnxruntime, tensorrt; print(f'[OK] onnx={onnx.__version__}  onnxslim={onnxslim.__version__}  ort={onnxruntime.__version__}  trt={tensorrt.__version__}')"
 
 # ultralytics pulls in opencv-python (no GStreamer) which overwrites the
 # custom-built cv2 from the builder stage.  Remove it so Python falls back
