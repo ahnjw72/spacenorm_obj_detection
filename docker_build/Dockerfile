@@ -197,16 +197,23 @@ RUN pip install --no-cache-dir \
     psutil
 
 # TensorRT export pipeline.
-# tensorrt-cu12 (and/or ultralytics transitive deps) can pull in plain
-# onnxruntime (CPU build) which pip treats as conflicting with onnxruntime-gpu,
-# silently dropping the GPU build.  Installing tensorrt first and then
-# force-reinstalling the ONNX stack last guarantees onnxruntime-gpu wins.
+# tensorrt-cu12 (or ultralytics transitive deps) may pull in plain onnxruntime
+# (CPU build) which conflicts with onnxruntime-gpu.  Explicitly uninstall the
+# CPU build first so there is no conflict, then install the GPU build normally.
+# Do NOT use --force-reinstall: it cascades to all deps and can silently upgrade
+# numpy past 1.x, breaking the OpenCV .so that was compiled against numpy 1.26.4.
 RUN pip install --no-cache-dir tensorrt-cu12
 
-RUN pip install --no-cache-dir --force-reinstall \
-    "onnx>=1.12.0,<2.0.0" \
-    onnxslim \
-    onnxruntime-gpu
+RUN pip uninstall -y onnxruntime 2>/dev/null || true && \
+    pip install --no-cache-dir \
+        "onnx>=1.12.0,<2.0.0" \
+        onnxslim \
+        onnxruntime-gpu
+
+# Re-pin numpy to 1.26.4 last.  Some packages above accept numpy 2.x and may
+# upgrade it, but the OpenCV .so in this image was compiled against numpy 1.x
+# and is not ABI-compatible with numpy 2.x.
+RUN pip install --no-cache-dir "numpy==1.26.4"
 
 # Verify the ONNX/TRT stack is intact — fail the build if anything is missing.
 RUN python3 -c "import onnx, onnxslim, onnxruntime, tensorrt; print(f'[OK] onnx={onnx.__version__}  onnxslim={onnxslim.__version__}  ort={onnxruntime.__version__}  trt={tensorrt.__version__}')"
