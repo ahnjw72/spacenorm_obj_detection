@@ -156,6 +156,15 @@ else
 fi
 
 envsubst < "${TEMPLATE}" > "${RENDERED}"
+
+# The stack bind-mounts /var/lib/spacenorm_obj_detection on each worker node
+# for caching TensorRT engine files. Docker Swarm requires the source path to
+# exist on the host before the container starts.
+# Run this once on every worker node if the directory is not yet present:
+#   sudo mkdir -p /var/lib/spacenorm_obj_detection
+echo "[INFO] Ensure /var/lib/spacenorm_obj_detection exists on each worker node."
+echo "       If not, run on the worker: sudo mkdir -p /var/lib/spacenorm_obj_detection"
+
 # docker stack deploy -c "${RENDERED}" "${STACK_NAME}"
 docker stack deploy --with-registry-auth -c "${RENDERED}" "${STACK_NAME}"
 

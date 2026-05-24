@@ -33,8 +33,9 @@ services:
         target: ${CFG_BASE_DIR_IN_CONTAINER}/cctv/cctv_${SERVICE_NAME}.keys
         mode: 0444
 
+    command: ["python", "-u", "/app/spacenorm_obj_detection/entrypoint.py"]
     #command: ["python", "-u", "-m", "spacenorm_obj_detection.spacenorm_obj_detection"]
-    command: ["tail", "-f", "/dev/null"]
+    #command: ["tail", "-f", "/dev/null"]
 
     environment:
       TZ: Asia/Seoul
@@ -54,10 +55,26 @@ services:
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: all
 
+      # TensorRT engine build parameters (used by entrypoint.py)
+      # entrypoint.py hashes the .pt file and caches the engine under
+      # SPACENORM_ENGINE_CACHE_DIR so the engine is rebuilt automatically
+      # whenever the model weights change, even if the filename stays the same.
+      SPACENORM_MODEL_PT: /app/spacenorm_obj_detection/yolo11x_set01-0148.pt
+      SPACENORM_ENGINE_CACHE_DIR: /var/lib/spacenorm_obj_detection
+      SPACENORM_IMGSZ: "640"
+      SPACENORM_TRT_HALF: "true"
+      SPACENORM_DEVICE: "0"
+      SPACENORM_TRT_WORKSPACE: "4"
+
     volumes:
       - type: bind
         source: /var/log/${LOG_DIR_NAME}
         target: /var/log/${LOG_DIR_NAME}
+
+      # Engine cache — persists across container restarts; one engine per GPU arch
+      - type: bind
+        source: /var/lib/spacenorm_obj_detection
+        target: /var/lib/spacenorm_obj_detection
 
     # Equivalent to: --log-driver json-file --log-opt max-size=100m --log-opt max-file=3
     logging:
