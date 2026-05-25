@@ -176,6 +176,25 @@ print(model)
 export SPACENORM_MODEL_PT="/app/${MODEL_PT_REL}"
 echo "[INFO] SPACENORM_MODEL_PT: ${SPACENORM_MODEL_PT}"
 
+# Derive SPACENORM_IMGSZ from the server override config so that servers
+# using a different img_size (e.g. jaeil_cr uses 1280) get an engine built
+# at the correct resolution. Falls back to default.json if not overridden.
+export SPACENORM_IMGSZ=$(python3 -c "
+import json
+def get_imgsz(cfg_path):
+    try:
+        d = json.load(open(cfg_path))
+        return d['detector']['img_size']['value']
+    except (KeyError, TypeError, FileNotFoundError):
+        return None
+
+imgsz = get_imgsz('${OVERRIDE_CFG}') or get_imgsz('${DEFAULT_CFG}')
+if not imgsz:
+    raise RuntimeError('Could not determine img_size from config files')
+print(imgsz)
+")
+echo "[INFO] SPACENORM_IMGSZ: ${SPACENORM_IMGSZ}"
+
 envsubst < "${TEMPLATE}" > "${RENDERED}"
 
 # The stack bind-mounts /var/lib/spacenorm_obj_detection on each worker node

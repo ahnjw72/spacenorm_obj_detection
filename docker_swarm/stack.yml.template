@@ -61,7 +61,7 @@ services:
       # whenever the model weights change, even if the filename stays the same.
       SPACENORM_MODEL_PT: ${SPACENORM_MODEL_PT}
       SPACENORM_ENGINE_CACHE_DIR: /var/lib/spacenorm_obj_detection
-      SPACENORM_IMGSZ: "640"
+      SPACENORM_IMGSZ: "${SPACENORM_IMGSZ}"
       SPACENORM_TRT_HALF: "true"
       SPACENORM_DEVICE: "0"
       SPACENORM_TRT_WORKSPACE: "4"
