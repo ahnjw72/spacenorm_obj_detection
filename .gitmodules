@@ -1,0 +1,3 @@
+[submodule "spacenorm_configurations"]
+	path = spacenorm_configurations
+	url = git@github.com:ahnjw72/spacenorm_configurations.git
