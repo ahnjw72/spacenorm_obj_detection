@@ -285,3 +285,4 @@ fabric.properties
 # Private keys
 *.pem
 utils/kakao_code.json
+spacenorm_cfg
