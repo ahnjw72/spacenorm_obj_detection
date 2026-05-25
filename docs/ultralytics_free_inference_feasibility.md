@@ -168,7 +168,7 @@ def postprocess(
     scores       = preds[:, 4:]
 
     # Class confidence = max score across all classes
-    class_ids  = np.argmax(scores, axis=1)
+    class_ids   = np.argmax(scores, axis=1)
     confidences = scores[np.arange(len(scores)), class_ids]
 
     # Filter by confidence and target class
@@ -202,8 +202,8 @@ def postprocess(
     )
     indices = indices.flatten() if len(indices) > 0 else []
 
-    final_boxes = [[int(x1[i]), int(y1[i]), int(x2[i]), int(y2[i])] for i in indices]
-    final_confs  = [float(confidences[i]) for i in indices]
+    final_boxes   = [[int(x1[i]), int(y1[i]), int(x2[i]), int(y2[i])] for i in indices]
+    final_confs   = [float(confidences[i]) for i in indices]
     final_classes = [int(class_ids[i]) for i in indices]
 
     return final_boxes, final_confs, final_classes
@@ -245,15 +245,87 @@ contact Ultralytics directly.
 
 ---
 
+## Comparison with Alternative Models
+
+### YOLOv11 vs. YOLO-NAS — Accuracy and Speed
+
+Benchmarks on COCO val2017, T4 GPU, TensorRT FP16, input 640×640.
+Sources: [Ultralytics YOLO11 docs](https://docs.ultralytics.com/models/yolo11/),
+[Deci-AI/super-gradients YOLONAS.md](https://github.com/Deci-AI/super-gradients/blob/master/YOLONAS.md).
+
+| Model | mAP50-95 | T4 TRT FP16 (ms) | Params (M) |
+|-------|----------|-----------------|------------|
+| YOLO11s | 47.0 | 2.5 | 9.4 |
+| YOLO-NAS S | 47.5 | 3.21 | 19.0 |
+| YOLO11m | 51.5 | 4.7 | 20.1 |
+| YOLO-NAS M | 51.55 | 5.85 | 51.1 |
+| YOLO11l | 53.4 | 6.2 | 25.3 |
+| YOLO-NAS L | 52.22 | 7.87 | 66.9 |
+| **YOLO11x** | **54.7** | **11.3** | **56.9** |
+
+**YOLOv11 achieves equal or better mAP with 2–3× fewer parameters and faster TRT
+inference at every size tier.**
+
+> **Note on comparability:** YOLO-NAS latency uses Deci AI's proprietary
+> quantization-aware TRT export; YOLO11 uses standard Ultralytics TRT export.
+> Benchmarks were produced by different teams with different TRT versions, so
+> direct comparison should be treated as approximate.
+
+---
+
+### YOLO-NAS License and Development Status
+
+> ⚠️ **Correction:** An earlier version of this document listed YOLO-NAS as an
+> Apache 2.0 commercial-friendly alternative. That was incorrect.
+
+| Component | License |
+|-----------|---------|
+| super-gradients framework code | Apache 2.0 |
+| **YOLO-NAS pre-trained weights** | **Custom non-commercial license** |
+
+The [YOLO-NAS weights license](https://github.com/Deci-AI/super-gradients/blob/master/LICENSE.YOLONAS.md)
+explicitly prohibits:
+
+- *"any commercial use, including in connection with any models used in a production environment"*
+- Distribution, sublicensing, or modification without prior written consent from Deci
+
+This makes YOLO-NAS **more restrictive than Ultralytics YOLO11** for commercial use.
+
+**Development status:** Deci AI was acquired by NVIDIA in April 2024 (~$300M) and
+dissolved as an independent entity. The last super-gradients release was v3.7.1
+(April 8, 2024); no releases have been made since. Pre-trained model download URLs
+are broken and the documentation site redirects to nvidia.com. YOLO-NAS is
+effectively abandoned with no continuation roadmap from NVIDIA.
+
+---
+
+### Genuinely Commercial-Friendly Alternatives
+
+| Model | Code license | Weights license | Status |
+|-------|-------------|----------------|--------|
+| YOLOv11 | AGPL-3.0 | AGPL-3.0 | ✅ Actively developed |
+| YOLO-NAS | Apache 2.0 | ❌ Non-commercial | ⛔ Abandoned (post-NVIDIA acquisition) |
+| **RT-DETR** | **Apache 2.0** | **Apache 2.0** | ✅ Active (PaddlePaddle + Ultralytics wrapper) |
+| **Detectron2** | **Apache 2.0** | **Apache 2.0** | ✅ Active (Meta) |
+
+**RT-DETR** is the most practical Apache 2.0 alternative — comparable accuracy to
+YOLOv11, supported by both PaddlePaddle (original) and available as an Ultralytics
+wrapper (`from ultralytics import RTDETR`). Switching to RT-DETR would require
+retraining the custom model on the project's dataset.
+
+---
+
 ## Recommendation
 
 1. **Short term:** Purchase an Ultralytics Enterprise license. Cheaper and faster than
    re-implementing post-processing; eliminates all license uncertainty.
 
 2. **Medium term (if commercial scale justifies it):** Implement the Ultralytics-free
-   inference path described above, keeping Ultralytics only for the offline export step.
-   Validate output parity thoroughly before switching production workloads.
+   runtime inference path described above, keeping Ultralytics only for the one-time
+   offline export step. Validate output parity thoroughly before switching production
+   workloads.
 
-3. **Long term (if avoiding Ultralytics entirely):** Evaluate Apache 2.0 licensed
-   alternatives (RT-DETR, YOLO-NAS, Detectron2) for new model training, which removes
-   the export-time dependency as well.
+3. **Long term (if avoiding Ultralytics entirely):** Retrain the custom model using
+   **RT-DETR** (Apache 2.0, including weights), which removes the export-time
+   Ultralytics dependency as well. Do not consider YOLO-NAS — its weights are
+   non-commercial and the project is abandoned.
