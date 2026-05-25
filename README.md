@@ -2,8 +2,6 @@
 
 Real-time human occupancy detection service for CCTV RTSP streams, powered by [Ultralytics YOLOv11](https://github.com/ultralytics/ultralytics). Detects people in each camera frame, applies ROI masking and background subtraction, and reports occupancy counts to the Spacenorm API via REST and MQTT.
 
-This project is an inference-only service refactored from `spacenorm_obj_detectionv7`. Training and file-based (video/image/NVR) inference are out of scope — see `offline_spacenorm_obj_detection.py` for offline batch video processing.
-
 ---
 
 ## Features
