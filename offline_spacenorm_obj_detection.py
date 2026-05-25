@@ -215,6 +215,8 @@ def process_id_folder(id_folder, model, imgsz, args):
 def parse_args():
     parser = argparse.ArgumentParser(description="Offline batch video detection with YOLOv11")
     parser.add_argument("--common_config", required=True, help="Path to common runtime configuration JSON file")
+    parser.add_argument("--model", default=None,
+                        help="Override the model path from config (e.g. pass a .engine file from offline_entrypoint.py)")
     parser.add_argument("--hot_reload", action="store_true", help="Reload config on each scan (not yet implemented)")
     return parser.parse_args()
 
