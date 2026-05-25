@@ -59,7 +59,7 @@ services:
       # entrypoint.py hashes the .pt file and caches the engine under
       # SPACENORM_ENGINE_CACHE_DIR so the engine is rebuilt automatically
       # whenever the model weights change, even if the filename stays the same.
-      SPACENORM_MODEL_PT: /app/spacenorm_obj_detection/yolo11x_set01-0148.pt
+      SPACENORM_MODEL_PT: ${SPACENORM_MODEL_PT}
       SPACENORM_ENGINE_CACHE_DIR: /var/lib/spacenorm_obj_detection
       SPACENORM_IMGSZ: "640"
       SPACENORM_TRT_HALF: "true"

@@ -155,6 +155,27 @@ else
     export PORT2="9000"
 fi
 
+# Derive SPACENORM_MODEL_PT from the server override config so that servers
+# using a different model (e.g. jaeil_cr uses yolo11x.pt instead of the
+# fine-tuned yolo11x_set01-0148.pt) get the correct TRT engine built.
+# Falls back to the model defined in default.json if the override does not specify one.
+MODEL_PT_REL=$(python3 -c "
+import json
+def get_model(cfg_path):
+    try:
+        d = json.load(open(cfg_path))
+        return d['detector']['model']['value']
+    except (KeyError, TypeError, FileNotFoundError):
+        return None
+
+model = get_model('${OVERRIDE_CFG}') or get_model('${DEFAULT_CFG}')
+if not model:
+    raise RuntimeError('Could not determine model path from config files')
+print(model)
+")
+export SPACENORM_MODEL_PT="/app/${MODEL_PT_REL}"
+echo "[INFO] SPACENORM_MODEL_PT: ${SPACENORM_MODEL_PT}"
+
 envsubst < "${TEMPLATE}" > "${RENDERED}"
 
 # The stack bind-mounts /var/lib/spacenorm_obj_detection on each worker node
