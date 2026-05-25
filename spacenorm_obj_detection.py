@@ -61,6 +61,14 @@ cctv_space_name = None
 app = Flask(__name__)
 app.secret_key = 'abcde'
 
+SOURCE_CODE_URL = "https://github.com/ahnjw72/spacenorm_obj_detection"
+
+@app.after_request
+def add_source_code_header(response):
+    """AGPL-3.0 compliance: expose source code URL to all HTTP responses."""
+    response.headers["X-Source-Code"] = SOURCE_CODE_URL
+    return response
+
 PKG_NAME = Path(__file__).parent.name
 
 WINDOW_NAME = 'TrtYOLODemo' 
