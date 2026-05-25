@@ -27,6 +27,7 @@ import hashlib
 import os
 import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -79,21 +80,31 @@ def export_engine(pt_path: str, engine_path: str,
     SETTINGS.update({'sync': False})
     from ultralytics import YOLO
 
-    model = YOLO(pt_path)
-    exported = model.export(
-        format='engine',
-        imgsz=imgsz,
-        device=device,
-        half=half,
-        workspace=workspace,
-        verbose=True,
-    )
+    # Ultralytics writes intermediate files (.onnx, .engine) next to the source
+    # .pt file.  The container runs as user 7000:7000 and /app/ is root-owned,
+    # so export would fail with EACCES.  Copy the .pt to a temp directory first
+    # so all intermediate files land in /tmp (world-writable), then move only
+    # the final .engine to the cache dir (owned by 7000:7000).
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_pt = os.path.join(tmp_dir, Path(pt_path).name)
+        print(f"[offline_entrypoint] Copying .pt to temp dir: {tmp_pt}", flush=True)
+        shutil.copy2(pt_path, tmp_pt)
 
-    # shutil.move handles cross-device moves (container overlay → bind-mount)
-    exported_path = Path(str(exported))
-    target_path   = Path(engine_path)
-    if exported_path.resolve() != target_path.resolve():
-        shutil.move(str(exported_path), str(target_path))
+        model = YOLO(tmp_pt)
+        exported = model.export(
+            format='engine',
+            imgsz=imgsz,
+            device=device,
+            half=half,
+            workspace=workspace,
+            verbose=True,
+        )
+
+        # shutil.move handles cross-device moves (/tmp → bind-mount)
+        exported_path = Path(str(exported))
+        target_path   = Path(engine_path)
+        if exported_path.resolve() != target_path.resolve():
+            shutil.move(str(exported_path), str(target_path))
 
     print(f"[offline_entrypoint] Engine cached at: {engine_path}", flush=True)
 
