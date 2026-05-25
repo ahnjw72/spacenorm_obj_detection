@@ -23,6 +23,7 @@ Environment variables (all optional — defaults match default.json / stack.yml)
 
 import hashlib
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -93,11 +94,14 @@ def export_engine(pt_path: str, engine_path: str,
         verbose=True,
     )
 
-    # Ultralytics writes the engine next to the .pt; move it to the cache dir
+    # Ultralytics writes the engine next to the .pt; move it to the cache dir.
+    # Use shutil.move() instead of Path.rename() because the source (/app/...)
+    # and destination (/var/lib/... bind-mount) are on different filesystems —
+    # os.rename() raises EXDEV (errno 18) on cross-device moves.
     exported_path = Path(str(exported))
     target_path   = Path(engine_path)
     if exported_path.resolve() != target_path.resolve():
-        exported_path.rename(target_path)
+        shutil.move(str(exported_path), str(target_path))
 
     print(f"[entrypoint] Engine cached at: {engine_path}", flush=True)
 
