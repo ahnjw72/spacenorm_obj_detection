@@ -236,25 +236,6 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
             logger.error(f"[{key}] cam.read() to return None --> retry to read() after short sleep")
             time.sleep(1.0)  # Short sleep before retrying
             continue
-
-        """
-        if img is None:
-            logger.warning(f"[{key}] cam.read() returns None -> release cam")
-            # 1. Immediate Cleanup
-            cam.release() # <-- internally will join grab_img() thread who will release the capture object
-            
-            # 2. Calculate Backoff (2^n)
-            wait_time = min(2 ** cam.retry_count, cam.max_wait_sec)
-            logger.error(f"[{key}] Stream lost. Retrying in {wait_time}s...")
-            time.sleep(wait_time)
-            
-            # 3. Increment retry and try to open
-            cam.retry_count += 1
-            cam._open() 
-            continue
-        else:
-            cam.retry_count = 0 # reset counter
-        """
             
         (H, W) = img.shape[:2]
 
@@ -347,16 +328,19 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
                             # logger.info(f"[{key}] Try to add AR comment with files")
                             
                             img_for_AR = vis.draw_bboxes(img, boxes, confs, clss, types, motionesses)
-                            timestamp = time.time()
-                            image_filename = f'./{PKG_NAME}/AR_images/{key}_{timestamp}.jpg'
+                            
+                            # timestamp = time.time()
+                            # image_filename = f'./{PKG_NAME}/AR_images/{key}_{timestamp}.jpg'
+                            
+                            image_filename = f'./{PKG_NAME}/AR_images/{key}_{tic_yolo}.jpg'
                             cv2.imwrite(image_filename, img_for_AR)
             
                             logger.info(f"[{key}] --> AR coment with files: {image_filename}")
                             if args.detect_car_kumho:
-                                msg = f"{num_detected_boxes} car(s) detected"
+                                msg = f"{num_detected_boxes} car(s) detected. detected_at: {tic_yolo}"
                             else:
-                                msg = f"{num_detected_boxes} person(s) detected"
-                            
+                                msg = f"{num_detected_boxes} person(s) detected. detected_at: {tic_yolo}"
+
                             f = open(image_filename, 'rb')
                             
                             # cam.spacenorm_api.AR_comment_with_files(r, f, image_filename, msg, key)
