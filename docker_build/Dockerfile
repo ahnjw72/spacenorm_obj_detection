@@ -202,7 +202,7 @@ RUN pip install --no-cache-dir \
 # CPU build first so there is no conflict, then install the GPU build normally.
 # Do NOT use --force-reinstall: it cascades to all deps and can silently upgrade
 # numpy past 1.x, breaking the OpenCV .so that was compiled against numpy 1.26.4.
-RUN pip install --no-cache-dir tensorrt-cu12
+RUN pip install --no-cache-dir tensorrt-cu12 "nvidia-modelopt[onnx]>=0.44"
 
 RUN pip uninstall -y onnxruntime 2>/dev/null || true && \
     pip install --no-cache-dir \

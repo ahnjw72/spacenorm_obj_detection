@@ -82,10 +82,18 @@ def engine_filename(pt_path: str, imgsz: int, half: bool) -> str:
 
 
 def cleanup_stale_engines(cache_dir: Path, current_engine: str) -> None:
-    """Remove engine files in cache_dir that belong to the same stem but are outdated."""
+    """Remove engines that match this container's model+hash+imgsz+precision but have a
+    different TRT version — i.e. engines made obsolete by a TRT upgrade on this node.
+
+    Engines with a different hash, imgsz, or precision belong to other containers
+    sharing the same cache directory and are left untouched.
+    """
     current = Path(current_engine).name
-    stem    = current.split('_')[0]
-    for path in cache_dir.glob(f"{stem}_*.engine"):
+    # Strip _trt<ver>.engine to get the shared prefix for this exact configuration.
+    # e.g. "yolo11x_set01-0148_abc123_imgsz640_fp16_trt10030.engine"
+    #   -> prefix = "yolo11x_set01-0148_abc123_imgsz640_fp16"
+    prefix = current.rsplit('_trt', 1)[0]
+    for path in cache_dir.glob(f"{prefix}_trt*.engine"):
         if path.name != current:
             print(f"[entrypoint] Removing stale engine: {path.name}", flush=True)
             path.unlink(missing_ok=True)
