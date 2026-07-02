@@ -4,10 +4,14 @@ Container entrypoint for spacenorm_obj_detection.
 
 On each container start:
   1. Compute SHA256 of the .pt model file
-  2. Derive a unique engine filename  (<stem>_<hash12>_imgsz<N>_<precision>.engine)
+  2. Derive a unique engine filename
+       <stem>_<sha256[:12]>_imgsz<N>_<precision>_trt<version>.engine
+     The TRT version is encoded in the filename so that a TRT software upgrade
+     automatically invalidates the cached engine and triggers a rebuild.
   3. If that engine file does not exist in ENGINE_CACHE_DIR → export .pt → .engine
      (takes ~2-5 minutes on first run per node; subsequent starts are instant)
-  4. exec() the main service, passing the engine path via --model
+  4. Remove any stale engines for the same model (different TRT version or params).
+  5. exec() the main service, passing the engine path via --model
 
 Environment variables (all optional — defaults match default.json / stack.yml):
   SPACENORM_MODEL_PT         Path to the source .pt file inside the container
@@ -53,18 +57,38 @@ def sha256_file(path: str, chunk_size: int = 1 << 20) -> str:
     return h.hexdigest()
 
 
+def trt_version_tag() -> str:
+    """Return a compact TRT version string safe for use in filenames (e.g. '10030')."""
+    try:
+        import tensorrt as trt
+        return trt.__version__.replace('.', '')
+    except ImportError:
+        return 'notrt'
+
+
 def engine_filename(pt_path: str, imgsz: int, half: bool) -> str:
     """
-    Build a unique engine filename that encodes model identity and build params:
-      <stem>_<sha256[:12]>_imgsz<N>_<fp16|fp32>.engine
+    Build a unique engine filename encoding model identity, build params, and TRT version:
+      <stem>_<sha256[:12]>_imgsz<N>_<fp16|fp32>_trt<version>.engine
 
-    If the .pt weights change (same filename, retrained), sha256 changes →
-    a new engine is built automatically.
+    Any of these changing (retrained weights, different imgsz, TRT upgrade) produces
+    a new filename, causing the old engine to be ignored and a fresh one to be built.
     """
     stem      = Path(pt_path).stem
     digest    = sha256_file(pt_path)[:12]
     precision = 'fp16' if half else 'fp32'
-    return f"{stem}_{digest}_imgsz{imgsz}_{precision}.engine"
+    trt_ver   = trt_version_tag()
+    return f"{stem}_{digest}_imgsz{imgsz}_{precision}_trt{trt_ver}.engine"
+
+
+def cleanup_stale_engines(cache_dir: Path, current_engine: str) -> None:
+    """Remove engine files in cache_dir that belong to the same stem but are outdated."""
+    current = Path(current_engine).name
+    stem    = current.split('_')[0]
+    for path in cache_dir.glob(f"{stem}_*.engine"):
+        if path.name != current:
+            print(f"[entrypoint] Removing stale engine: {path.name}", flush=True)
+            path.unlink(missing_ok=True)
 
 
 def export_engine(pt_path: str, engine_path: str,
@@ -132,6 +156,7 @@ def main() -> None:
         print(f"[entrypoint] Cached engine found: {engine_path}", flush=True)
     else:
         export_engine(pt_path, engine_path, IMGSZ, HALF, DEVICE, WORKSPACE)
+        cleanup_stale_engines(cache_dir, engine_path)
 
     # Replace this process with the main service.
     # Pass --model to override the value from default.json so the service
