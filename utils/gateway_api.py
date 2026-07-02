@@ -60,14 +60,6 @@ class Gateway:
             'Content-Type': "application/json"
         }
 
-        """
-        self.__header_AR_comment_with_files = {
-            'Authorization': "Bearer " + access_token,
-            'cache-control': "no-cache",
-            'MIME-Type': "image/jpeg"
-        }
-        """
-
         self.__refresh_token = refresh_token
         self.__presence_data = PresenceData()
 
@@ -346,8 +338,9 @@ def AR_comment_for_ED_sensor_test(access_token, refresh_token, api, virtual_ED_s
         print("no information for uploading AR comment with file")
 
 def AR_comment_for_PS_sensor_test(access_token, refresh_token, api, device_ID):
+    key = 'test_snapshot_url'
     print("report 0")
-    r = api.report('PS', device_ID, 0, 'test_korean')
+    r = api.report('PS', device_ID, 0, key)
     print(f"--> response = {r.json()}")
 
     time.sleep(1)
@@ -358,10 +351,16 @@ def AR_comment_for_PS_sensor_test(access_token, refresh_token, api, device_ID):
 
     if len(r.json()['result'][0]['camera_snapshots']) > 0:
         image_filename = 'test_car.jpg'        
-        f = open(image_filename, 'rb')
+        try:
+            f = open(image_filename, 'rb')
+        except Exception as e:
+            logger.error(f"Exception in AR_comment_for_PS_sensor_test() : {e}")
+            print(f"Exception in AR_comment_for_PS_sensor_test() : {e}")
+            return
+        print(f"image_filename = {image_filename}")
         urllib.parse.quote(image_filename)
         msg = "!! 스냅샷 테스트 중입니다. 무시하십시오 !!"
-        api.AR_comment_with_files(r, f, urllib.parse.quote(image_filename), msg, 'test_korean')
+        api.AR_comment_with_files(r, f, urllib.parse.quote(image_filename), msg, key)
         print(f"AR_comment_with_files_succeeded with msg = '{msg}'")
     else:
         print("no information for uploading AR comment with file")
@@ -389,7 +388,7 @@ def main():
 
     # AR_comment_for_ED_sensor_test(access_token, refresh_token, api, virtual_ED_sensor_id='5356453130300')
 
-    AR_comment_for_PS_sensor_test(access_token, refresh_token, api, device_ID='73706163656e6f726d5f63616d657273')
+    AR_comment_for_PS_sensor_test(access_token, refresh_token, api, device_ID='73706163656e6f726d5f63616d657277')
 
        
 if __name__ == "__main__":
