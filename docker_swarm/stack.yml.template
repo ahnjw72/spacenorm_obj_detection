@@ -40,6 +40,7 @@ services:
     environment:
       TZ: Asia/Seoul
       OPENCV_LOG_LEVEL: ERROR
+      YOLO_VERBOSE: "false"
 
       # Match your docker run envs
       SPACENORM_SERVER_ID: ${SERVER}
