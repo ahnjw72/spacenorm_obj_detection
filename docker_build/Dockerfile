@@ -213,7 +213,9 @@ RUN pip uninstall -y onnxruntime 2>/dev/null || true && \
 # Re-pin numpy to 1.26.4 last.  Some packages above accept numpy 2.x and may
 # upgrade it, but the OpenCV .so in this image was compiled against numpy 1.x
 # and is not ABI-compatible with numpy 2.x.
-RUN pip install --no-cache-dir "numpy==1.26.4"
+# The upper bound (<2) guards against any future runtime pip install (e.g.
+# Ultralytics AutoUpdate) accidentally pulling in numpy 2.x.
+RUN pip install --no-cache-dir "numpy>=1.26.4,<2.0"
 
 # Verify the ONNX/TRT stack is intact — fail the build if anything is missing.
 RUN python3 -c "import onnx, onnxslim, onnxruntime, tensorrt; print(f'[OK] onnx={onnx.__version__}  onnxslim={onnxslim.__version__}  ort={onnxruntime.__version__}  trt={tensorrt.__version__}')"
