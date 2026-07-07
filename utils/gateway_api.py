@@ -346,7 +346,7 @@ def AR_comment_for_PS_sensor_test(access_token, refresh_token, api, device_ID):
     time.sleep(1)
 
     print("report 1")
-    r = api.report('PS', device_ID, 1, 'AR_comment_test')
+    r = api.report('PS', device_ID, 1, key)
     print(f"--> response = {r.json()}")
 
     if len(r.json()['result'][0]['camera_snapshots']) > 0:
