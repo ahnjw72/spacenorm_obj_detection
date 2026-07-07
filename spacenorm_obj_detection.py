@@ -318,6 +318,11 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
                 consecutive_frame_with_persons = 0
 
             if not prevent_report:
+                
+                # If MQTT is enabled, publish the number of detected boxes to the MQTT broker
+                if mqtt_broker_addr: # if MQTT is enabled
+                    report_via_mqtt(num_detected_boxes, mqtt_client, mqtt_topic, key)
+                
                 r = cam.spacenorm_api.report('PS', cctv_ID[cam.spacenorm_device_key]['device_id'], num_detected_boxes, key)                
                 logger.info("[{}] report # {}".format(key, num_detected_boxes))
 
@@ -357,9 +362,9 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
                     logger.error(f"[{key}] Exception type: {type(e).__name__}")
                     logger.error(f"[{key}] Exception value: {str(e)}")
 
-                # If MQTT is enabled, publish the number of detected boxes to the MQTT broker
-                if mqtt_broker_addr: # if MQTT is enabled
-                    report_via_mqtt(num_detected_boxes, mqtt_client, mqtt_topic, key)
+                # # If MQTT is enabled, publish the number of detected boxes to the MQTT broker
+                # if mqtt_broker_addr: # if MQTT is enabled
+                #     report_via_mqtt(num_detected_boxes, mqtt_client, mqtt_topic, key)
 
             else:
                 logger.info("[{}] detected # {}".format(key, num_detected_boxes))
