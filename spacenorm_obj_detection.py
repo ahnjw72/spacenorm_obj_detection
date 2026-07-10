@@ -121,8 +121,7 @@ BACKGROUND_THRESH3 = 0.0 # smaller than this value means the bb is surely backgr
 
 """
  
-SPACENORM_REPORT_PERIOD_SEC = 3.0 # this value will be increased if the remaining time is negative in detection loop
-report_period_modify_lock = threading.Lock()
+SPACENORM_REPORT_PERIOD_SEC = 3.0 # default target interval between report checks; overridden from cfg.report_period in main() before any thread starts, and never mutated afterwards
 
 SPACENORM_HEARTBEAT_PERIOD_SEC = 300 # every 5 minutes
 
@@ -171,7 +170,7 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
     Thread function for each cam (ex. of key: 'B1F_Food')
     """
     # grab global references to the output frame, and lock variables
-    global outputFrame, lock, selected_key, SPACENORM_REPORT_PERIOD_SEC
+    global outputFrame, lock, selected_key
 
     assert(key == args.spacenorm_device_key)
     assert(vis)
@@ -409,12 +408,10 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
         remaining_time = SPACENORM_REPORT_PERIOD_SEC - tic_toc
         if remaining_time > 0:
             time.sleep(remaining_time)
-            accumulated_time += SPACENORM_REPORT_PERIOD_SEC
         else:
-            accumulated_time += tic_toc
-            logger.warning("[{}] remaining_time = {} --> SPACENORM_REPORT_PERIOD_SEC (= {}) will be increased".format(key, remaining_time, SPACENORM_REPORT_PERIOD_SEC))
-            with report_period_modify_lock:
-                SPACENORM_REPORT_PERIOD_SEC += 0.5 # increase SPACENORM_REPORT_PERIOD_SEC by 0.5 sec
+            logger.warning("[{}] iteration took {:.2f}s, exceeding SPACENORM_REPORT_PERIOD_SEC (= {}s) -- proceeding without extra sleep".format(key, tic_toc, SPACENORM_REPORT_PERIOD_SEC))
+
+        accumulated_time += time.time() - tic
 
         if (accumulated_time > SPACENORM_HEARTBEAT_PERIOD_SEC):
             logger.info(f"[{key}] Sending heartbeat..")
@@ -683,10 +680,12 @@ def init_cctv_data(cfg_filepath):
 #=======================================================================================================
 
 def main():
-    global spacenorm_key_list
+    global spacenorm_key_list, SPACENORM_REPORT_PERIOD_SEC
 
     loader = SpacenormConfigLoader()
     cfg = loader.load()
+
+    SPACENORM_REPORT_PERIOD_SEC = cfg.report_period
 
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setLevel(cfg.log_level)
