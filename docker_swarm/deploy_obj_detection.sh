@@ -83,7 +83,7 @@ else
     exit 1
 fi
 
-CFG_BASE_DIR="/home/cym/Work/spacenorm_obj_detection/spacenorm_cfg"
+CFG_BASE_DIR="/home/ahnjw/Work/spacenorm_obj_detection/spacenorm_cfg"
 export CFG_BASE_DIR_IN_CONTAINER="/app/spacenorm_obj_detection/spacenorm_cfg"
 STACK_NAME="spacenorm_obj_detection"
 TEMPLATE="stack.yml.template"
