@@ -246,7 +246,7 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
 
             toc_yolo = time.time()
             tic_toc_yolo = toc_yolo - tic_yolo
-            logger.debug(f">>>>>>>>>> yolo_inference_image( ): {tic_toc_yolo*1000:.2f}ms")
+            logger.debug(f"[{key}] >>>>>>>>>> only yolo_inference_image( ): {tic_toc_yolo*1000:.2f}ms ({1/tic_toc_yolo:.1f}fps)")
 
         toc2 = time.time()
         
@@ -281,7 +281,6 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
             clss = new_clss
 
         if args.background:
-            # if cam.spacenorm_api or args.remove_background_bb:
             if args.remove_background_bb:
                 remove_member = True
             else:
@@ -402,7 +401,6 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
         curr_fps = 1.0 / tic_toc 
         # calculate an exponentially decaying average of fps number
         fps = curr_fps if fps == 0.0 else (fps*0.95 + curr_fps*0.05)
-        # logger.info("[{}] {} fps ----------------------------\n".format(key, fps))
         logger.info(f"[{key}] {fps:.2f} fps ----------------------------\n")
         
         remaining_time = SPACENORM_REPORT_PERIOD_SEC - tic_toc
