@@ -132,6 +132,7 @@ WORKDIR /app
 # gstreamer1.0-libav provides the GStreamer FFmpeg integration needed for RTSP.
 # Ubuntu 22.04 versioned av-libs are pulled automatically by ffmpeg/gstreamer1.0-libav.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    tzdata \
     python3 python3-pip \
     libglib2.0-0 \
     libgstreamer1.0-0 \
