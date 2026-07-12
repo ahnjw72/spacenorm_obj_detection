@@ -226,8 +226,13 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
         cam._open()
         time.sleep(2.0)
 
+    prev_tic = time.time()
     while True:
         tic = time.time()
+
+        duration_betn_read_calls = tic - prev_tic
+        logger.debug(f"[{key}] duration bet'n cam.read() calls: {duration_betn_read_calls:.2f}s (report_period = {SPACENORM_REPORT_PERIOD_SEC}s)")
+        prev_tic = tic
 
         img = cam.read()
 
@@ -235,7 +240,7 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
             logger.error(f"[{key}] cam.read() to return None --> retry to read() after short sleep")
             time.sleep(1.0)  # Short sleep before retrying
             continue
-            
+
         (H, W) = img.shape[:2]
 
         with yolo_lock:
@@ -246,7 +251,7 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
 
             toc_yolo = time.time()
             tic_toc_yolo = toc_yolo - tic_yolo
-            logger.debug(f"[{key}] >>>>>>>>>> only yolo_inference_image( ): {tic_toc_yolo*1000:.2f}ms ({1/tic_toc_yolo:.1f}fps)")
+            logger.debug(f"[{key}] time taken by yolo_inference_image( ): {tic_toc_yolo*1000:.2f}ms ({1/tic_toc_yolo:.1f}fps)")
 
         toc2 = time.time()
         
