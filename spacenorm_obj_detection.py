@@ -243,14 +243,16 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
 
         (H, W) = img.shape[:2]
 
+        toc4 = time.time()
         with yolo_lock:
             tic_yolo = time.time()
-
+            
             boxes, confs, clss = yolo_inference_image(img, model, imgsz, args.conf_thresh)
             # format of boxes (list of xyxy):  [[566, 37, 600, 62], [710, 48, 787, 155]]
 
             toc_yolo = time.time()
             tic_toc_yolo = toc_yolo - tic_yolo
+            logger.debug(f"[{key}] time taken in waiting for yolo_lock: {(tic_yolo-toc4)*1000:.2f}ms")
             logger.debug(f"[{key}] time taken by yolo_inference_image( ): {tic_toc_yolo*1000:.2f}ms ({1/tic_toc_yolo:.1f}fps)")
 
         toc2 = time.time()
