@@ -300,6 +300,8 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
 
         assert(cam.spacenorm_api) # following code is only valid when spacenorm_api is not None
 
+        toc3 = time.time()
+
         num_detected_boxes = len(boxes)
         if temp_cnt < 5: # do not report for the first five frames for background bb detection
             temp_cnt += 1
@@ -396,8 +398,6 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
 
         toc = time.time()
         tic_toc = toc-tic
-        tic_toc2 = toc2-tic
-        logger.debug(f"[{key}] >>>>>>>>>> {tic_toc2*1000:.2f}({tic_toc_yolo*1000:.2f})ms + {(tic_toc-tic_toc2)*1000:.2f}({tic_toc_check_bb*1000:.2f})ms = {tic_toc*1000:.2f}ms")
 
         if (tic_toc < 0):
             logger.warning(f"[{key}] Error!! tic = {tic}, toc = {toc} --> tic_toc = toc-tic = {tic_toc}")
@@ -406,7 +406,18 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
         curr_fps = 1.0 / tic_toc 
         # calculate an exponentially decaying average of fps number
         fps = curr_fps if fps == 0.0 else (fps*0.95 + curr_fps*0.05)
-        logger.info(f"[{key}] {fps:.2f} fps ----------------------------\n")
+
+        # tic : cam.read() 직전
+        # toc2 : yolo_inference_image() 직후
+        # toc3 : postprocessing 직후
+        # toc : report 및 AR comment 전송 직후
+        time_for_inference = toc2 - tic
+        time_for_postprocessing = toc3 - toc2
+        time_for_report = toc - toc3
+
+        logger.info(f"[{key}] Total duration   : {tic_toc*1000:.2f}ms")
+        logger.info(f"[{key}]   inference({time_for_inference*1000:.2f}ms) + postprocessing({time_for_postprocessing*1000:.2f}ms) + report({time_for_report*1000:.2f}ms)")
+        logger.info(f"[{key}] Total frame rate : {fps:.2f} fps\n")
         
         remaining_time = SPACENORM_REPORT_PERIOD_SEC - tic_toc
         if remaining_time > 0:
