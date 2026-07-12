@@ -341,17 +341,14 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
                             
                             img_for_AR = vis.draw_bboxes(img, boxes, confs, clss, types, motionesses)
                             
-                            # timestamp = time.time()
-                            # image_filename = f'./{PKG_NAME}/AR_images/{key}_{timestamp}.jpg'
-                            
-                            image_filename = f'./{PKG_NAME}/AR_images/{key}_{tic_yolo}.jpg'
+                            image_filename = f'./{PKG_NAME}/AR_images/{key}_{tic}.jpg'
                             cv2.imwrite(image_filename, img_for_AR)
             
                             logger.info(f"[{key}] --> AR coment with files: {image_filename}")
                             if args.detect_car_kumho:
-                                msg = f"{num_detected_boxes} car(s) detected. detected_at: {tic_yolo}"
+                                msg = f"{num_detected_boxes} car(s) detected. detected_at: {tic}"
                             else:
-                                msg = f"{num_detected_boxes} person(s) detected. detected_at: {tic_yolo}"
+                                msg = f"{num_detected_boxes} person(s) detected. detected_at: {tic}"
 
                             f = open(image_filename, 'rb')
                             
