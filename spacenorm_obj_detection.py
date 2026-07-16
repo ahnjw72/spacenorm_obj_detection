@@ -344,7 +344,7 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
                             image_filename = f'./{PKG_NAME}/AR_images/{key}_{tic}.jpg'
                             cv2.imwrite(image_filename, img_for_AR)
             
-                            logger.info(f"[{key}] --> AR coment with files: {image_filename}")
+                            logger.info(f"[{key}] --> AR comment with files: {image_filename}")
                             if args.detect_car_kumho:
                                 msg = f"{num_detected_boxes} car(s) detected. detected_at: {tic}"
                             else:
