@@ -1,0 +1,13 @@
+
+====================================================================================
+특정 CCTV와 특정 duration에 대해 객체 report 및 AR comment 상황만 추출하는 스크립트
+
+./filter_camera_report_logs.sh \
+    -s spacenorm_obj_detection_jaeil_cr \
+    -c "Jaeil_Robot_EVOL_08x21#1_R1" \
+    -f "2026-07-16 10:00:00" -t "2026-07-16 10:10:00" \
+    -o /path/to/output.log
+
+  -z overrides the local timezone offset (default +09:00); omit -o to print to stdout.
+====================================================================================
+
