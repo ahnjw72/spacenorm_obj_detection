@@ -1,0 +1,20 @@
+
+=========================================================================================================
+python monitor_detection_result.py \
+  --video <path-to-video> \
+  [--site <site-name>] [--camera <camera-name>] \
+  [--report_period <seconds>] \
+  [--output_dir <dir>] \
+  [--model <path>] [--conf_thresh <val>] \
+  [--conf_thresh_low <val>]
+
+상세 내용은 README.md 참조
+
+python monitor_detection_result.py \
+  --video ~/Work/spacenorm_obj_detection/scripts/cctv/video_to_image/01.videos/EVOL_0821_#2_W1/test_clip2.mp4 \
+  --site jaeil_cr --camera "EVOL_08x21#2_W1"\
+  --report_period 0.2 \
+  --model yolo11x_set01-0148.pt \
+  --output_dir /tmp/monitor_out
+=========================================================================================================
+

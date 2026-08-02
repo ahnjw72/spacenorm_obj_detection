@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 686" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <style>
+    .surface   { fill: #fcfcfb; }
+    .ink       { fill: #0b0b0b; }
+    .ink-2     { fill: #52514e; }
+    .ink-muted { fill: #898781; }
+    .grid      { stroke: #e1e0d9; stroke-width: 1; }
+    .baseline  { stroke: #c3c2b7; stroke-width: 1; }
+    .mono      { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .trackA    { fill: #2a78d6; stroke: #2a78d6; }
+    .trackB    { fill: #eb6834; stroke: #eb6834; }
+    .trackC    { fill: #1baf7a; stroke: #1baf7a; }
+  </style>
+
+  <rect class="surface" x="0" y="0" width="1000" height="686"/>
+
+  <!-- Title -->
+  <text x="500" y="28" text-anchor="middle" font-size="19" font-weight="600" class="ink">Classifying a Clip: the Step-Major Loop Over Constructed Tracks</text>
+  <text x="500" y="48" text-anchor="middle" font-size="12.5" class="ink-2">Track construction (greedy IoU tracking, §3a) is a black box here — the input is <tspan class="mono">tracks</tspan>, one present-step list per track.</text>
+
+  <!-- Input annotation -->
+  <text x="40" y="78" font-size="12" font-weight="600" class="ink-2">INPUT (already built, §3a):</text>
+  <text x="220" y="78" font-size="12" class="mono ink-muted">tracks = { A: [0,1,4,5], B: [3,4,5,6], C: [7,8] }</text>
+
+  <!-- Step axis tick labels (centers at 150+70*i+35) -->
+  <g font-size="11" class="ink-muted" text-anchor="middle">
+    <text x="185" y="112">0</text><text x="255" y="112">1</text><text x="325" y="112">2</text>
+    <text x="395" y="112">3</text><text x="465" y="112">4</text><text x="535" y="112">5</text>
+    <text x="605" y="112">6</text><text x="675" y="112">7</text><text x="745" y="112">8</text>
+    <text x="815" y="112">9</text>
+  </g>
+  <text x="855" y="112" font-size="11" class="ink-muted">step</text>
+
+  <!-- Vertical gridlines at column boundaries: 150 + 70*i, i=0..10 -->
+  <g class="grid">
+    <line x1="150" y1="122" x2="150" y2="350"/><line x1="220" y1="122" x2="220" y2="350"/>
+    <line x1="290" y1="122" x2="290" y2="350"/><line x1="360" y1="122" x2="360" y2="350"/>
+    <line x1="430" y1="122" x2="430" y2="350"/><line x1="500" y1="122" x2="500" y2="350"/>
+    <line x1="570" y1="122" x2="570" y2="350"/><line x1="640" y1="122" x2="640" y2="350"/>
+    <line x1="710" y1="122" x2="710" y2="350"/><line x1="780" y1="122" x2="780" y2="350"/>
+    <line x1="850" y1="122" x2="850" y2="350"/>
+  </g>
+
+  <!-- Track ID labels -->
+  <g font-size="14" font-weight="600">
+    <circle cx="55" cy="160" r="6" class="trackA"/><text x="70" y="165" class="ink">Track A</text>
+    <circle cx="55" cy="240" r="6" class="trackB"/><text x="70" y="245" class="ink">Track B</text>
+    <circle cx="55" cy="320" r="6" class="trackC"/><text x="70" y="325" class="ink">Track C</text>
+  </g>
+
+  <!-- Track A: bar y=148 h=24. det(0-1) interp(2-3) det(4) weak(5) -->
+  <rect x="151" y="148" width="138" height="24" rx="4" class="trackA"/>
+  <rect x="291" y="148" width="138" height="24" rx="4" fill="#2a78d6" fill-opacity="0.08" stroke="#2a78d6" stroke-width="2" stroke-dasharray="5,4"/>
+  <rect x="431" y="148" width="68"  height="24" rx="4" class="trackA"/>
+  <rect x="501" y="148" width="68"  height="24" rx="4" fill="#2a78d6" fill-opacity="0.45" stroke="#2a78d6" stroke-width="1"/>
+
+  <!-- Track B: bar y=228 h=24. det(3-5) weak(6) -->
+  <rect x="361" y="228" width="208" height="24" rx="4" class="trackB"/>
+  <rect x="571" y="228" width="68"  height="24" rx="4" fill="#eb6834" fill-opacity="0.45" stroke="#eb6834" stroke-width="1"/>
+
+  <!-- Track C: bar y=308 h=24. det(7-8) -->
+  <rect x="641" y="308" width="138" height="24" rx="4" class="trackC"/>
+
+  <!-- Highlighted cross-section: step 3 (bold) -->
+  <line x1="395" y1="122" x2="395" y2="400" stroke="#0b0b0b" stroke-width="2" stroke-dasharray="6,4"/>
+  <circle cx="395" cy="160" r="6" fill="#fcfcfb" stroke="#2a78d6" stroke-width="2" stroke-dasharray="3,2"/>
+  <circle cx="395" cy="240" r="6" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+  <circle cx="395" cy="320" r="5" fill="none" stroke="#c3c2b7" stroke-width="1.5" stroke-dasharray="2,2"/>
+
+  <!-- Secondary cross-section: step 6 (lighter) -->
+  <line x1="605" y1="122" x2="605" y2="400" stroke="#898781" stroke-width="1.5" stroke-dasharray="4,4"/>
+  <circle cx="605" cy="160" r="5" fill="none" stroke="#c3c2b7" stroke-width="1.5" stroke-dasharray="2,2"/>
+  <circle cx="605" cy="240" r="6" fill="#eb6834" fill-opacity="0.45" stroke="#eb6834" stroke-width="1.5"/>
+  <circle cx="605" cy="320" r="5" fill="none" stroke="#c3c2b7" stroke-width="1.5" stroke-dasharray="2,2"/>
+
+  <!-- Callout: step 3 (primary) -->
+  <rect x="150" y="415" width="330" height="92" rx="6" fill="#fcfcfb" stroke="#0b0b0b" stroke-width="1.2"/>
+  <text x="164" y="436" font-size="13" font-weight="600" class="ink">Step 3</text>
+  <text x="164" y="458" font-size="11.5" class="mono ink-2">oracle = [ (A, box, interp),</text>
+  <text x="196" y="472" font-size="11.5" class="mono ink-2">(B, box, det) ]</text>
+  <text x="164" y="494" font-size="11.5" class="ink-2">→ classify(oracle) → reason  (§5)</text>
+
+  <!-- Callout: step 6 (secondary) -->
+  <rect x="530" y="415" width="300" height="92" rx="6" fill="#fcfcfb" stroke="#898781" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="544" y="436" font-size="13" font-weight="600" class="ink-2">Step 6</text>
+  <text x="544" y="458" font-size="11.5" class="mono ink-2">oracle = [ (B, box, weak) ]</text>
+  <text x="544" y="480" font-size="11.5" class="ink-2">A ended at step 5; C not yet started —</text>
+  <text x="544" y="494" font-size="11.5" class="ink-2">both simply return (None, None).</text>
+
+  <!-- Pseudocode inset -->
+  <rect x="40" y="535" width="560" height="112" rx="6" fill="#f9f9f7" stroke="#e1e0d9" stroke-width="1"/>
+  <g class="mono ink" font-size="12">
+    <text x="54" y="555">for step s in 0..N-1:</text>
+    <text x="54" y="573">    oracle = []</text>
+    <text x="54" y="591">    for each track in tracks:        # every track, every step</text>
+    <text x="54" y="609">        box, source = _track_box_at(track, s)</text>
+    <text x="54" y="627">        if box is not None: oracle.append((track, box, source))</text>
+    <text x="54" y="645" font-weight="600">    reason = classify(oracle)        # §5 precedence</text>
+  </g>
+
+  <!-- Legend: track identity -->
+  <text x="620" y="550" font-size="11.5" font-weight="600" class="ink-2">Track identity</text>
+  <circle cx="628" cy="566" r="6" class="trackA"/><text x="640" y="570" font-size="11.5" class="ink-2">A</text>
+  <circle cx="668" cy="566" r="6" class="trackB"/><text x="680" y="570" font-size="11.5" class="ink-2">B</text>
+  <circle cx="708" cy="566" r="6" class="trackC"/><text x="720" y="570" font-size="11.5" class="ink-2">C</text>
+
+  <!-- Legend: evidence at a step (shown in neutral blue) -->
+  <text x="620" y="592" font-size="11.5" font-weight="600" class="ink-2">Evidence at a step</text>
+  <rect x="620" y="600" width="26" height="14" rx="3" fill="#2a78d6"/>
+  <text x="654" y="611" font-size="11" class="ink-2">det — real, ≥ conf_thresh</text>
+  <rect x="620" y="619" width="26" height="14" rx="3" fill="#2a78d6" fill-opacity="0.45"/>
+  <text x="654" y="630" font-size="11" class="ink-2">weak — real, sub-threshold</text>
+  <rect x="620" y="638" width="26" height="14" rx="3" fill="#2a78d6" fill-opacity="0.08" stroke="#2a78d6" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <text x="654" y="649" font-size="11" class="ink-2">interp — computed guess</text>
+  <text x="880" y="611" font-size="11" class="ink-2">(blank)</text>
+  <text x="850" y="630" font-size="11" class="ink-2">no box returned</text>
+
+  <!-- Caption -->
+  <text x="40" y="675" font-size="10.5" class="ink-muted">Verified example: A spans steps 0–5, B spans 3–6 (overlapping A), C spans 7–8 (isolated). Source values are the actual output of _track_box_at on this input.</text>
+</svg>

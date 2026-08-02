@@ -1,0 +1,138 @@
+"""labelstudio_export.py — turn mined frames into a Label Studio import file.
+
+Each task carries the pre-labels as a *prediction* so the reviewer starts from
+almost-correct boxes and only corrects. Suspected false positives are included
+as a distinctly-labeled prediction so the reviewer can see and delete them.
+
+Images are referenced via Label Studio's local-file serving. On the review host:
+
+    export LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
+    export LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=<PARENT of staging_dir>
+
+Note the document root is the **parent** of ``staging_dir``, not ``staging_dir``
+itself: Label Studio refuses to register a Local Storage whose path equals the
+document root, and ``staging_dir`` must be registrable so that one storage entry
+covers every NVR beneath it. Task image URLs are therefore
+``/data/local-files/?d=<path relative to that PARENT>`` — e.g.
+``?d=reviewing/<nvr>/ch00/morning/<frame>.jpg``. ``build_dataset._ls_document_root``
+computes this and bakes it into the generated ``run_labelstudio.sh``; setting the
+root to ``staging_dir`` instead is the most common cause of the "issue loading URL
+from $image" 404 (see README "Troubleshooting").
+
+Import the tasks_*.json via "Import" in the LS project, review, then
+"Export → YOLO".
+
+Label config to use in the LS project (rectangle labels):
+
+    <View>
+      <Image name="image" value="$image"/>
+      <RectangleLabels name="label" toName="image">
+        <Label value="person" background="green"/>
+        <Label value="bird"/><Label value="cat"/><Label value="dog"/>
+        <Label value="horse"/><Label value="sheep"/><Label value="cow"/>
+        <Label value="SUSPECT_FP" background="red"/>
+        <Label value="SUSPECT_STATIC_FP" background="darkred"/>
+      </RectangleLabels>
+    </View>
+"""
+import json
+from urllib.parse import quote
+
+from flicker_miner import TRAINSET_NAMES
+
+# The project's labeling config (person + 6 animals + the two review-only suspect
+# labels). Paste this into a new LS project's "Labeling Setup → Custom template",
+# or copy it from the label_config.xml written next to each sweep's tasks file.
+LABEL_CONFIG = """<View>
+  <Image name="image" value="$image"/>
+  <RectangleLabels name="label" toName="image">
+    <Label value="person" background="green"/>
+    <Label value="bird"/><Label value="cat"/><Label value="dog"/>
+    <Label value="horse"/><Label value="sheep"/><Label value="cow"/>
+    <Label value="SUSPECT_FP" background="red"/>
+    <Label value="SUSPECT_STATIC_FP" background="darkred"/>
+  </RectangleLabels>
+</View>
+"""
+
+
+def write_label_config(out_path):
+    """Write the project labeling config XML (for copy/paste into a new project)."""
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(LABEL_CONFIG)
+
+
+def _rect(box, w, h, label, rid, tid=None):
+    """One Label Studio rectanglelabels result (coords in PERCENT of image).
+    ``tid`` (the track id this box belongs to, within this clip) rides as
+    region ``meta`` — visible to the reviewer when the region is selected,
+    without needing its own Label config entry."""
+    x1, y1, x2, y2 = box
+    result = {
+        "id": rid,
+        "from_name": "label",
+        "to_name": "image",
+        "type": "rectanglelabels",
+        "original_width": w,
+        "original_height": h,
+        "image_rotation": 0,
+        "value": {
+            "x": 100.0 * x1 / w,
+            "y": 100.0 * y1 / h,
+            "width": 100.0 * (x2 - x1) / w,
+            "height": 100.0 * (y2 - y1) / h,
+            "rotation": 0,
+            "rectanglelabels": [label],
+        },
+    }
+    if tid is not None:
+        result["meta"] = {"text": [f"track {tid}"]}
+    return result
+
+
+def build_task(record, image_rel_path):
+    """Build one Label Studio task dict from a mined frame record."""
+    w, h = record["width"], record["height"]
+    results = []
+    n = 0
+    for (box, _src, tid) in record["persons"]:
+        results.append(_rect(box, w, h, "person", f"r{n}", tid)); n += 1
+    for (box, cls) in record["animal_boxes"]:
+        results.append(_rect(box, w, h, TRAINSET_NAMES[cls], f"r{n}")); n += 1
+    for (box, kind, tid) in record["suspect"]:
+        label = "SUSPECT_STATIC_FP" if kind == "static" else "SUSPECT_FP"
+        results.append(_rect(box, w, h, label, f"r{n}", tid)); n += 1
+
+    # All of these live in `data` so they are filterable/sortable Data Manager
+    # columns. There is no single "reason" — a frame belongs to any number of
+    # categories at once, so filter on the counts directly, e.g.
+    # n_anchor_start>0 OR n_anchor_end>0 (every frame with an interpolation
+    # anchor), or clip_id=<...> to review one clip at a time.
+    return {
+        "data": {
+            "image": "/data/local-files/?d=" + quote(image_rel_path),
+            "clip_id": record.get("clip_id"),
+            "channel": record.get("channel"),
+            "bucket": record.get("bucket"),
+            "num_detected": len(results),
+            "n_person": sum(1 for r in results
+                            if r["value"]["rectanglelabels"] == ["person"]),
+            "n_intpfn": record["n_intpfn"],
+            "n_weakfn": record["n_weakfn"],
+            "n_anchor_start": record["n_anchor_start"],
+            "n_anchor_end": record["n_anchor_end"],
+            "n_sfp": record["n_sfp"],
+            "n_fp": record["n_fp"],
+            "track_ids": record.get("track_ids", []),
+        },
+        "predictions": [{
+            "model_version": "prelabel",
+            "result": results,
+        }],
+    }
+
+
+def write_tasks(tasks, out_json_path):
+    """Write a list of tasks as a Label Studio JSON import file."""
+    with open(out_json_path, "w", encoding="utf-8") as f:
+        json.dump(tasks, f, ensure_ascii=False, indent=1)

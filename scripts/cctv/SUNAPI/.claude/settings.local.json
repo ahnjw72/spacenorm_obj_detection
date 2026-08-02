@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip show *)",
+      "Bash(python3 -c \"import requests; print\\('requests OK'\\)\")",
+      "Bash(ffmpeg -version)",
+      "Bash(pip3 --version)",
+      "Bash(python3 -m pip --version)"
+    ]
+  }
+}

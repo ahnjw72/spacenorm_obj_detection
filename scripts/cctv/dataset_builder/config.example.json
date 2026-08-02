@@ -1,0 +1,53 @@
+{
+  "host": "nvr.example.com",
+  "username": "admin",
+  "password": "CHANGEME",
+  "verify_ssl": false,
+  "rtsp_transport": "tcp",
+  "rtsp_port": null,
+
+  "channels": "all",
+
+  "model": "docker_build/yolo11x_set01-0148.pt",
+  "img_size": 640,
+  "conf_thresh": 0.6,
+
+  "track_conf": 0.25,
+  "track_vid_stride": 2,
+  "iou_track": 0.3,
+  "max_gap_frames": 15,
+  "bridge_max_disp_frac": 0.45,
+  "bridge_max_scale_ratio": 3.2,
+  "fp_max_track_len": 2,
+
+  "static_min_frames": 10,
+  "static_max_move_frac": 0.15,
+  "static_motion_thresh": 0.08,
+
+  "cross_clip_persistence": true,
+  "persist_grid_cols": 64,
+  "persist_grid_rows": 36,
+  "persist_min_track_steps": 60,
+  "persist_min_clips": 5,
+  "persist_thresh": 0.35,
+
+  "max_intpfn_per_clip": 40,
+  "max_weakfn_per_clip": 40,
+  "max_anchor_per_clip": 20,
+  "max_sfp_per_clip": 30,
+  "max_fp_per_clip": 20,
+  "max_easy_per_clip": 10,
+  "max_easy_barren_clip": 1,
+  "easy_every_n": 5,
+
+  "clip_duration_sec": 60,
+  "clip_download_timeout_sec": 60,
+  "clip_end_margin_sec": 120,
+  "lookback_hours": 24,
+  "window_start": null,
+  "window_end": null,
+  "clip_interval_min": 30,
+  "staging_dir": "data/cctv_train_data_mining/reviewing",
+  "keep_clips": false,
+  "annotate_clips": true
+}
