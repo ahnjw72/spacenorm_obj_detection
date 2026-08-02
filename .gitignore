@@ -30,6 +30,11 @@
 !cfg/yolov3*.cfg
 docker_shared/
 *.swp
+*.tgz
+
+# Holds plaintext NVR credentials. config.example.json is the committed template.
+# Needed explicitly because the `!*.json` rule above re-includes all JSON files.
+scripts/cctv/dataset_builder/config.json
 KT_cloud_files/
 backup_nsml/
 log_backup/
