@@ -9,17 +9,18 @@
     - [3c. Worked example — one person, detection sequence → categories](#3c-worked-example--one-person-detection-sequence--categories)
   - [4. Anchors (the crux)](#4-anchors-the-crux)
     - [4a. How much work `_bridgeable` can do: the feasible band of its two tests](#4a-how-much-work-_bridgeable-can-do-the-feasible-band-of-its-two-tests)
-    - [Worked example — intermixed detections (`P` = detected, `N` = none)](#worked-example--intermixed-detections-p--detected-n--none)
+    - [4b. Worked example — intermixed detections (`P` = detected, `N` = none)](#4b-worked-example--intermixed-detections-p--detected-n--none)
   - [5. Category taxonomy](#5-category-taxonomy)
-    - [Selection: independent per-category coverage guarantees](#selection-independent-per-category-coverage-guarantees)
-    - [Multiple people per frame](#multiple-people-per-frame)
-    - [Track ids and clip ids](#track-ids-and-clip-ids)
+    - [5a. Selection: independent per-category coverage guarantees](#5a-selection-independent-per-category-coverage-guarantees)
+    - [5b. Multiple people per frame](#5b-multiple-people-per-frame)
+    - [5c. Track ids and clip ids](#5c-track-ids-and-clip-ids)
   - [6. Static false positives (`SFP`) — `_static_fp_tids`](#6-static-false-positives-sfp--_static_fp_tids)
     - [6a. Two different predicates: flagging vs. accumulating evidence](#6a-two-different-predicates-flagging-vs-accumulating-evidence)
     - [6b. What the persistence map's stored value means](#6b-what-the-persistence-maps-stored-value-means)
   - [7. What the miner cannot decide (limits \& multi-person)](#7-what-the-miner-cannot-decide-limits--multi-person)
   - [8. Config knobs that change classification](#8-config-knobs-that-change-classification)
   - [9. Task ordering in `tasks_*.json`](#9-task-ordering-in-tasks_json)
+
 
 
 # Mining algorithm & rationale
@@ -934,7 +935,7 @@ The practical consequence for review is that filtering on
 detections bordering a gap. To audit whether a flicker's bracketing detections are
 real, filter `n_weakfn > 0` — that is where the endpoints almost always land.
 
-### Worked example — intermixed detections (`P` = detected, `N` = none)
+### 4b. Worked example — intermixed detections (`P` = detected, `N` = none)
 
 (Using the P/N result axis of §2a; each `P` here is a **strong** detection.)
 
@@ -1014,7 +1015,7 @@ candidates. Verified directly against the code: a 2-step track
 `Weak_FN` at step 0 and `FP` at step 1 — the *same* short track, two different
 review buckets, one per step.
 
-### Selection: independent per-category coverage guarantees
+### 5a. Selection: independent per-category coverage guarantees
 
 Earlier revisions of this document collapsed a frame's categories into one
 winning `reason` (by a fixed precedence order) for staging-folder routing and
@@ -1146,7 +1147,7 @@ the queue from ~7 089 to ~2 050 frames while losing **no** error candidate.
 index. With the default cap of 10 over a 60 s clip the even spread produces ~100-step
 gaps, so the guard is rarely the binding constraint; it matters only for short clips.
 
-### Multiple people per frame
+### 5b. Multiple people per frame
 
 The classify loop iterates over **every track with a box at the step** (`oracle`), so
 a frame with N people is handled per-box: each person independently gets its
@@ -1162,7 +1163,7 @@ Per-step detection→track association is one-to-one, so within a step no
 detection feeds two tracks. **Two multi-person failure modes are inherited from
 upstream (not from the classification logic) — see [§7](#7-what-the-miner-cannot-decide-limits--multi-person).**
 
-### Track ids and clip ids
+### 5c. Track ids and clip ids
 
 Every box on every frame carries the `tid` of the track it came from
 (`persons: [(box, source, tid)]`, `suspect: [(box, kind, tid)]`) — the same `tid`
@@ -1478,8 +1479,28 @@ filtering (e.g. `n_anchor_start > 0` lists gap-opening-anchor frames in
 clip-frame order, and `clip_id = <...>` narrows to one clip), so a flickering
 track's frames can be reviewed in temporal sequence within its clip.
 
-**Not guaranteed:** there is no explicit frame-index or timestamp *field* in the
-task `data`, so you cannot LS-sort by frame time directly — you rely on import
-order. If explicit ordering (or cross-clip sort by capture time) is ever needed,
-add sortable fields to `data`, e.g. `frame_idx` (raw index within the clip) and
-`capture_time` (the clip's start stamp), in `labelstudio_export.build_task`.
+**Explicit ordering fields.** Every task's `data` also carries `frame_idx` and
+`capture_time`, set in `labelstudio_export.build_task` from the record's
+`raw_idx` and the clip's start time:
+
+- **`frame_idx`** — this frame's raw video-frame index *within its own clip*, from
+  pass 1's decode. It is **not** renumbered by `track_vid_stride` (a stride-2 sweep
+  produces `frame_idx` values `0, 2, 4, …`, not `0, 1, 2, …`) and **not** affected
+  by which frames selection kept, so it is exactly the `raw_idx` the frame carried
+  throughout classification. Sorting the Data Manager by `frame_idx` after
+  filtering to one `clip_id` reproduces the ascending frame order described above,
+  independent of import order — useful once tasks from several sweeps have been
+  imported into the same project and no longer sit in one contiguous import block.
+- **`capture_time`** — the *clip's* start timestamp, ISO 8601 to the second
+  (`YYYY-MM-DDTHH:MM:SS`; no milliseconds — sub-second precision does not exist at
+  the clip-sampling granularity `clip_interval_min`/`clip_duration_sec` operate at).
+  Every frame from the same clip shares one value; sorting by it orders clips
+  chronologically across an entire sweep — or across several imported sweeps —
+  independent of channel or import order, which `clip_id`'s string form does not
+  support (it does not sort chronologically, since a lexical sort of
+  `<nvr>_ch<NN>_<stamp>` groups by channel first).
+
+Verified on real footage: within one clip's 120 selected frames, `frame_idx` is
+strictly ascending (matching the guarantee above) and every frame shares one
+`capture_time`; across two clips in the same sweep, `capture_time` takes exactly
+two distinct values, one per clip.

@@ -375,9 +375,13 @@ Open each task and correct the pre-labels:
   region info panel.
 - Add any person/animal the model missed entirely.
 - Filter/sort in the Data Manager by the task `data` columns: `clip_id`,
-  `channel`, `bucket`, `num_detected`, `n_person`, `track_ids`, and the
-  per-category counts `n_intpfn` / `n_weakfn` / `n_anchor_start` /
-  `n_anchor_end` / `n_sfp` / `n_fp`. A frame can independently qualify for
+  `channel`, `bucket`, `num_detected`, `n_person`, `track_ids`, `frame_idx`,
+  `capture_time`, and the per-category counts `n_intpfn` / `n_weakfn` /
+  `n_anchor_start` / `n_anchor_end` / `n_sfp` / `n_fp`. Sort by `capture_time` to
+  put frames in chronological order across clips and channels (task import order
+  otherwise groups by channel first, and `clip_id`'s string form doesn't sort
+  chronologically); filter to one `clip_id` and sort by `frame_idx` to walk one
+  clip's selected frames in true video order. A frame can independently qualify for
   several of these at once (there is no single "reason" to pick between them —
   see `ALGORITHM.md` §5), so filter on whichever count you're hunting for
   rather than a single label. Review `Anchor_start`/`Anchor_end` frames as FP

@@ -251,10 +251,16 @@ def write_yolo_labels(txt_path, boxes, cls_ids, width, height):
 # ---------------------------------------------------------------------------
 # Write one mined frame to staging (jpg + YOLO txt), return its LS task
 # ---------------------------------------------------------------------------
-def _save_record(rec, cfg, nvr, channel, bucket, stamp):
+def _save_record(rec, cfg, nvr, channel, bucket, stamp, capture_time):
     import cv2
     rec["channel"], rec["bucket"] = channel, bucket
     rec["clip_id"] = f"{nvr}_ch{channel:02d}_{stamp}"
+    # capture_time is the CLIP's start timestamp (one value per clip, shared by
+    # every frame in it), NOT this frame's own time within the clip — that is
+    # frame_idx (rec["raw_idx"], the raw video-frame index pass 1 assigned it).
+    # Together they give the Data Manager a sortable field ALGORITHM.md 9 notes
+    # is otherwise missing: import order is the only ordering LS has today.
+    rec["capture_time"] = capture_time
     rec["track_ids"] = sorted({tid for (_b, _s, tid) in rec["persons"]}
                                | {tid for (_b, _k, tid) in rec["suspect"]})
     ch_name = f"ch{channel:02d}"
@@ -477,7 +483,7 @@ def sweep(cfg, model, only_channel=None, forced_bucket=None, dry_run=False,
                         totals[cat] += 1
                     if dry_run:
                         continue
-                    task, rel = _save_record(rec, cfg, nvr, ch, bucket, stamp)
+                    task, rel = _save_record(rec, cfg, nvr, ch, bucket, stamp, start_iso)
                     ch_tasks.append(task)
                     manifest_writer.writerow([
                         rel, rec["clip_id"], ch, bucket, rec["n_person"],

@@ -91,7 +91,22 @@ def _rect(box, w, h, label, rid, tid=None):
 
 
 def build_task(record, image_rel_path):
-    """Build one Label Studio task dict from a mined frame record."""
+    """Build one Label Studio task dict from a mined frame record.
+
+    ``frame_idx`` and ``capture_time`` (ALGORITHM.md 9) exist because the Data
+    Manager otherwise has no sortable time field at all: task IDs reflect
+    IMPORT order, which is the sweep's channel-then-clip-then-frame nesting, not
+    a true chronological or within-clip ordering once you filter or import
+    across sweeps. ``frame_idx`` is this frame's raw video-frame index WITHIN its
+    clip (from pass 1's decode; not renumbered by ``track_vid_stride`` or by
+    which frames were selected) — sorting by it orders one clip's frames
+    correctly regardless of import order. ``capture_time`` is the CLIP's start
+    timestamp, ISO 8601 to the second (``YYYY-MM-DDTHH:MM:SS``, no milliseconds
+    — sub-second precision does not exist at the clip-sampling granularity this
+    tool operates at) — every frame from the same clip shares one value, so
+    sorting by it orders clips chronologically across an entire sweep, or across
+    several imported sweeps, independent of channel or import order.
+    """
     w, h = record["width"], record["height"]
     results = []
     n = 0
@@ -114,6 +129,8 @@ def build_task(record, image_rel_path):
             "clip_id": record.get("clip_id"),
             "channel": record.get("channel"),
             "bucket": record.get("bucket"),
+            "frame_idx": record.get("raw_idx"),
+            "capture_time": record.get("capture_time"),
             "num_detected": len(results),
             "n_person": sum(1 for r in results
                             if r["value"]["rectanglelabels"] == ["person"]),
