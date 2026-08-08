@@ -4,12 +4,20 @@ from PIL import Image
 from sklearn.model_selection import train_test_split
 from glob import glob
 
-BASE_DIR = "/home/cym/Work/spacenorm_yolov7/data/cctv_train_data"
+BASE_DIR = "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data"
 #SET_LIST = ["set01", "set02", "set03", "set04", "set05", "set06", "set07", "set08", "set09", "set10", "set11", "set12", "set13", "set14", "set15", "set16", "set17", "set18"] # train & test data will be created using these sets.
 SET_LIST = []
 
 SET_START_NUM = 1
-SET_END_NUM = 148
+SET_END_NUM = 149
+
+def image_ext(set_name, image_name):
+    """.jpg for legacy sets, .png for sets staged by dataset_builder (lossless
+    pass-1 cache, ALGORITHM.md 3) -- decided per file since old and new sets
+    coexist under BASE_DIR."""
+    if os.path.exists(os.path.join(BASE_DIR, set_name, image_name + ".png")):
+        return ".png"
+    return ".jpg"
 
 assert(SET_START_NUM<=99) # just for simplicity..
 if SET_END_NUM <= 99:
@@ -48,9 +56,9 @@ with open(train_txt_file, "w") as train_file, open(test_txt_file, "w") as test_f
         print(len(image_names_train))
         print(len(image_names_test))
         for images in image_names_train:
-            train_file.write("data/cctv_train_data/{}/{}".format(set, images) + ".jpg\n")            
+            train_file.write("data/cctv_train_data/{}/{}".format(set, images) + image_ext(set, images) + "\n")
         for images in image_names_test:
-            test_file.write("data/cctv_train_data/{}/{}".format(set, images) + ".jpg\n")
+            test_file.write("data/cctv_train_data/{}/{}".format(set, images) + image_ext(set, images) + "\n")
 
 print(train_txt_file)
 print(test_txt_file)

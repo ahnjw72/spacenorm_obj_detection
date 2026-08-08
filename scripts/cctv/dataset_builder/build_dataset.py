@@ -31,9 +31,10 @@ import json
 import logging
 import os
 import shlex
+import shutil
 import sys
 import time
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -85,7 +86,11 @@ DEFAULTS = {
     # flicker_miner._bridgeable and ALGORITHM.md 4 for the derivation.
     "bridge_max_disp_frac": 0.45,   # reject if TOTAL centroid displacement across the gap > this * mean box-diagonal
     "bridge_max_scale_ratio": 3.2,  # reject if the two bracketing boxes' areas differ by more than this factor
-    "fp_max_track_len": 2,       # tracks this short whose det>=conf_thresh are suspected FPs (2 steps = 0.13 s)
+    "fp_max_track_len": 2,       # GAP-FREE tracks this short whose det>=conf_thresh are suspected transient FPs
+                                 # (2 steps = 0.13 s); a track that bridges even one gap is EXCLUDED regardless
+                                 # of this value -- it is routed to the flicker (Anchor/Intp_FN) path instead,
+                                 # since a bridged gap is structurally indistinguishable from a genuine,
+                                 # briefly-occluded person (flicker_miner.py's fp_tids, ALGORITHM.md §5a)
     # --- Static human-like FP (mannequin/poster) detection ---
     # static_min_frames governs FLAGGING FOR REVIEW and is deliberately loose
     # (10 steps = 0.66 s), because a wrongly flagged box costs one relabel click.
@@ -200,7 +205,7 @@ def resolve_channels(cfg):
 
 MANIFEST_COLUMNS = ["image", "clip_id", "channel", "bucket", "n_person",
                     "n_intpfn", "n_weakfn", "n_anchor_start", "n_anchor_end",
-                    "n_sfp", "n_fp", "n_animal", "animals", "track_ids"]
+                    "n_sfp", "n_fp", "n_context", "n_animal", "animals", "track_ids"]
 
 
 def open_manifest(manifest_path):
@@ -249,7 +254,7 @@ def write_yolo_labels(txt_path, boxes, cls_ids, width, height):
 
 
 # ---------------------------------------------------------------------------
-# Write one mined frame to staging (jpg + YOLO txt), return its LS task
+# Write one mined frame to staging (png + YOLO txt), return its LS task
 # ---------------------------------------------------------------------------
 def _save_record(rec, cfg, nvr, channel, bucket, stamp, capture_time):
     import cv2
@@ -261,8 +266,8 @@ def _save_record(rec, cfg, nvr, channel, bucket, stamp, capture_time):
     # Together they give the Data Manager a sortable field ALGORITHM.md 9 notes
     # is otherwise missing: import order is the only ordering LS has today.
     rec["capture_time"] = capture_time
-    rec["track_ids"] = sorted({tid for (_b, _s, tid) in rec["persons"]}
-                               | {tid for (_b, _k, tid) in rec["suspect"]})
+    rec["track_ids"] = sorted({tid for (_b, _s, tid, _cats, _conf) in rec["persons"]}
+                               | {tid for (_b, _k, tid, _conf) in rec["suspect"]})
     ch_name = f"ch{channel:02d}"
     # Flat per-channel/bucket staging — no per-category subfolder. Which
     # category(s) a frame belongs to is independent, filterable data
@@ -272,23 +277,29 @@ def _save_record(rec, cfg, nvr, channel, bucket, stamp, capture_time):
 
     ani_tag = ("_ani-" + "-".join(rec["animals"])) if rec["animals"] else ""
     name = f"{nvr}_{ch_name}_{bucket}_{stamp}_{rec['raw_idx']:06d}{ani_tag}"
-    jpg_path = os.path.join(out_dir, name + ".jpg")
+    # PNG, not JPEG: rec["image"] is read back verbatim from flicker_miner's
+    # pass-1 cache (flicker_miner.py mine_clip), i.e. the exact array the
+    # detector scored for this frame's recorded confidences. A lossy re-encode
+    # here would break that guarantee for the copy that actually gets reviewed
+    # and, eventually, retrained on — see ALGORITHM.md 3.
+    img_path = os.path.join(out_dir, name + ".png")
     txt_path = os.path.join(out_dir, name + ".txt")
 
     # YOLO pre-labels = corrected oracle: persons (class 0) + animals. Suspected
     # FPs are NOT written here (they are phantoms) — they ride only in the LS task.
-    boxes = [b for (b, _src, _tid) in rec["persons"]] + [b for (b, _c) in rec["animal_boxes"]]
+    boxes = [b for (b, _src, _tid, _cats, _conf) in rec["persons"]] + \
+            [b for (b, _cls, _conf) in rec["animal_boxes"]]
     cls_ids = [flicker_miner.PERSON_ID] * len(rec["persons"]) + \
-              [cls for (_b, cls) in rec["animal_boxes"]]
+              [cls for (_b, cls, _conf) in rec["animal_boxes"]]
 
-    cv2.imwrite(jpg_path, rec["image"])
+    cv2.imwrite(img_path, rec["image"])
     write_yolo_labels(txt_path, boxes, cls_ids, rec["width"], rec["height"])
 
     # Manifest path stays relative to staging_dir; the Label Studio ?d= path is
     # relative to the local-files document root (the PARENT of staging), so ONE
     # Local Storage registered at <staging_dir> covers every NVR.
-    rel_manifest = os.path.relpath(jpg_path, cfg.staging_dir)
-    rel_docroot = os.path.relpath(jpg_path, _ls_document_root(cfg.staging_dir))
+    rel_manifest = os.path.relpath(img_path, cfg.staging_dir)
+    rel_docroot = os.path.relpath(img_path, _ls_document_root(cfg.staging_dir))
     return lsx.build_task(rec, rel_docroot), rel_manifest
 
 
@@ -348,6 +359,150 @@ def _write_ls_launcher(ls_dir, document_root):
     return path
 
 
+def _row_tids(row):
+    return {t for t, _ in row["person_tags"]} | {t for t, _ in row["suspect_tags"]}
+
+
+def _fmt_box(tid, label):
+    return f"{label} (tid {tid})"
+
+
+def _row_category(row):
+    """This row's category string: plain (e.g. 'Weak_FN') if it carries one
+    box, or one '<label> (tid N)' term per box, joined with '+', if it
+    carries several -- so a multi-person frame stays disambiguated without
+    needing the separate track(s) column."""
+    boxes = [(t, ", ".join(cats) if cats else "easy") for t, cats in row["person_tags"]]
+    boxes += [(t, "SFP (SUSPECT_STATIC_FP)" if kind == "static" else "FP (SUSPECT_FP)")
+              for t, kind in row["suspect_tags"]]
+    if not boxes:
+        return "easy"
+    if len(boxes) == 1:
+        return boxes[0][1]
+    return " + ".join(_fmt_box(t, label) for t, label in boxes)
+
+
+def _row_tracks(row):
+    tids = sorted(_row_tids(row))
+    return ", ".join(f"tid {t}" for t in tids) if tids else "-"
+
+
+def _row_note(row, tids_before, prev_group_cats_by_tid, seen_tids):
+    """Best-effort, mechanically derived note (category + track-transition
+    signals only -- not a substitute for actually looking at the frames)."""
+    tids = _row_tids(row)
+    if not tids:
+        return "empty background, no detections at all"
+    appeared = tids - tids_before
+    disappeared = tids_before - tids
+    all_cats = [c for _t, cats in row["person_tags"] for c in cats]
+    kinds = [k for _t, k in row["suspect_tags"]]
+    if "static" in kinds:
+        note = "persistent, low-motion track flagged as a possible fixture"
+    elif "transient" in kinds:
+        note = "short, gap-free blip flagged as a possible phantom"
+    elif "Anchor_start" in all_cats:
+        note = "this detected step opens a gap"
+    elif "Anchor_end" in all_cats:
+        note = "this detected step closes a gap"
+    elif "Intp_FN" in all_cats:
+        note = "interpolated fill inside the gap"
+    elif "Weak_FN" in all_cats:
+        just_closed_gap = any(c in ("Intp_FN", "Anchor_end")
+                               for t, _ in row["person_tags"]
+                               for c in prev_group_cats_by_tid.get(t, ()))
+        if just_closed_gap:
+            note = "back to a weak detection"
+        elif not (tids & seen_tids):
+            note = "new track begins sub-threshold"
+        else:
+            note = "sub-threshold detection continues"
+    elif "Track_context" in all_cats:
+        note = "solid detection kept as context for this track's other misses"
+    else:
+        note = "new person appears, no error hypothesis" if appeared else \
+               "solid detection, no error hypothesis"
+    n_boxes = len(row["person_tags"]) + len(row["suspect_tags"])
+    if n_boxes > 1 and appeared:
+        # Single-box rows already cover their own appearance in the primary
+        # note above ("new track begins...", "new person appears..."); a
+        # multi-box row's primary note is only about whichever box's category
+        # won the priority order, so a DIFFERENT box newly appearing needs its
+        # own explicit callout or it goes unmentioned.
+        note += "; tid " + ", ".join(str(t) for t in sorted(appeared)) + " appears"
+    if disappeared:
+        note += "; tid " + ", ".join(str(t) for t in sorted(disappeared)) + " no longer present"
+    return note
+
+
+def _clip_table(rows):
+    """Group consecutive selected frames sharing the same (category,
+    track(s)) signature into one row, matching how a reviewer would
+    naturally read a frame-by-frame dump -- a run of identical entries is one
+    fact, not N repeated ones."""
+    groups = []          # each: {"idxs": [...], "cat": str, "tracks": str, "note": str}
+    seen_tids = set()
+    prev_group_cats_by_tid = {}
+    tids_before = set()
+    for row in rows:
+        cat, tracks = _row_category(row), _row_tracks(row)
+        if groups and groups[-1]["cat"] == cat and groups[-1]["tracks"] == tracks:
+            groups[-1]["idxs"].append(row["raw_idx"])
+        else:
+            note = _row_note(row, tids_before, prev_group_cats_by_tid, seen_tids)
+            groups.append({"idxs": [row["raw_idx"]], "cat": cat, "tracks": tracks, "note": note})
+            prev_group_cats_by_tid = {t: cats for t, cats in row["person_tags"]}
+            tids_before = _row_tids(row)
+        seen_tids |= _row_tids(row)
+    lines = ["| frame_idx | category | track(s) | note |", "|---|---|---|---|"]
+    for g in groups:
+        idxs = ", ".join(str(i) for i in g["idxs"])
+        lines.append(f"| {idxs} | {g['cat']} | {g['tracks']} | {g['note']} |")
+    return lines
+
+
+def _write_channel_summary(reports_dir, nvr, ch, sweep_stamp, bucket_stats):
+    """Write a per-bucket, per-clip effectiveness summary for one channel.
+
+    This is deliberately separate from the Label Studio task file: it is not
+    for the reviewer, it is for judging the mining algorithm's own yield.
+    Barren clips (no candidate, just the single easy fallback frame,
+    ALGORITHM.md 5a's ~90%-barren-clips observation) are collapsed to one
+    line each so the report stays readable; a clip that produced at least one
+    real candidate gets a full frame-by-frame table."""
+    os.makedirs(reports_dir, exist_ok=True)
+    path = os.path.join(reports_dir, f"summary_{sweep_stamp}_ch{ch:02d}.md")
+    lines = [f"# Mining summary: {nvr} ch{ch:02d}, sweep {sweep_stamp}", ""]
+    for bucket in BUCKETS:
+        clips = bucket_stats.get(bucket)
+        if not clips:
+            continue
+        n_candidate = sum(1 for c in clips if c["has_candidate"])
+        lines.append(f"## {bucket} bucket ({len(clips)} clip(s) sampled, "
+                     f"{n_candidate} produced a candidate)")
+        lines.append("")
+        prev_was_table = False
+        for i, c in enumerate(clips):
+            if not c["has_candidate"]:
+                if prev_was_table:
+                    lines.append("")
+                lines.append(f"- `{c['start_iso']}`: barren, no candidate "
+                             f"({len(c['rows'])} selected frame(s))")
+                prev_was_table = False
+                continue
+            if i > 0:
+                lines.append("")
+            lines.append(f"### {c['start_iso']} ({len(c['rows'])} selected frames, "
+                         f"ch{ch:02d}, {bucket} bucket)")
+            lines.append("")
+            lines.extend(_clip_table(c["rows"]))
+            prev_was_table = True
+        lines.append("")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    return path
+
+
 # ---------------------------------------------------------------------------
 # One sweep over the channels
 # ---------------------------------------------------------------------------
@@ -365,6 +520,11 @@ def sweep(cfg, model, only_channel=None, forced_bucket=None, dry_run=False,
     # Clips are downloaded and mined even in a dry run (it only skips writing the
     # dataset), so .clips/ must always exist.
     os.makedirs(clips_dir, exist_ok=True)
+    # flicker_miner.mine_clip caches pass-1 frames here per clip and deletes its
+    # own subdir when done; a subdir surviving to the next sweep only means a
+    # prior run was killed mid-clip. Pure scratch space, never referenced by the
+    # manifest/ledger, so wiping it at sweep start is always safe.
+    shutil.rmtree(os.path.join(cfg.staging_dir, ".tmp_pass1"), ignore_errors=True)
     manifest_file = manifest_writer = None
     if not dry_run:
         os.makedirs(ls_dir, exist_ok=True)
@@ -412,6 +572,7 @@ def sweep(cfg, model, only_channel=None, forced_bucket=None, dry_run=False,
     sweep_stamp = win_end.strftime("%Y%m%dT%H%M%S")
     try:
         for ch in channels:
+            bucket_stats = defaultdict(list)   # bucket -> [{start_iso, frames, counts}, ...] this sweep
             persist = persist_path = None
             if cfg.cross_clip_persistence:
                 persist_path = os.path.join(cfg.staging_dir, nvr, "persistence", f"ch{ch:02d}.json")
@@ -420,7 +581,7 @@ def sweep(cfg, model, only_channel=None, forced_bucket=None, dry_run=False,
             # One task file PER CHANNEL, rewritten after every clip that yields
             # tasks. Previously every task of the whole sweep was held in memory and
             # written once at the very end, so a kill at hour 2 of a 3 h sweep left
-            # the staged JPEGs and manifest rows on disk with no importable task file
+            # the staged PNGs and manifest rows on disk with no importable task file
             # at all — the review queue for all completed work was lost.
             #
             # On a resume the file must be EXTENDED, not rewritten from scratch:
@@ -478,9 +639,22 @@ def sweep(cfg, model, only_channel=None, forced_bucket=None, dry_run=False,
                 records, all_frames = flicker_miner.mine_clip(
                     clip_path, model, cfg, persist=persist, update_persist=not dry_run)
 
+                clip_rows, has_candidate = [], False
                 for rec in records:
-                    for cat in flicker_miner.frame_categories(rec):
+                    cats = flicker_miner.frame_categories(rec)
+                    for cat in cats:
                         totals[cat] += 1
+                    if cats != {"easy"}:
+                        has_candidate = True
+                    # Lightweight per-frame snapshot for the effectiveness report
+                    # (§ _write_channel_summary) -- tid + this box's own category
+                    # tags only, NOT the frame image, so a whole sweep's worth of
+                    # these stays cheap to hold in memory.
+                    clip_rows.append({
+                        "raw_idx": rec["raw_idx"],
+                        "person_tags": [(tid, cats_) for (_b, _s, tid, cats_, _conf) in rec["persons"]],
+                        "suspect_tags": [(tid, kind) for (_b, kind, tid, _conf) in rec["suspect"]],
+                    })
                     if dry_run:
                         continue
                     task, rel = _save_record(rec, cfg, nvr, ch, bucket, stamp, start_iso)
@@ -489,10 +663,13 @@ def sweep(cfg, model, only_channel=None, forced_bucket=None, dry_run=False,
                         rel, rec["clip_id"], ch, bucket, rec["n_person"],
                         rec["n_intpfn"], rec["n_weakfn"],
                         rec["n_anchor_start"], rec["n_anchor_end"],
-                        rec["n_sfp"], rec["n_fp"], len(rec["animal_boxes"]),
+                        rec["n_sfp"], rec["n_fp"], rec["n_context"],
+                        len(rec["animal_boxes"]),
                         ",".join(rec["animals"]),
                         ";".join(str(t) for t in rec["track_ids"]),
                     ])
+                bucket_stats[bucket].append({"start_iso": start_iso, "rows": clip_rows,
+                                              "has_candidate": has_candidate})
 
                 if not dry_run:
                     # Durable, per-clip checkpoint. Order matters: the manifest rows
@@ -543,6 +720,18 @@ def sweep(cfg, model, only_channel=None, forced_bucket=None, dry_run=False,
                 logger.info(f"  ch{ch:02d}: +{n_new} new Label Studio task(s) "
                             f"({len(ch_tasks)} total) -> "
                             f"{os.path.basename(ch_tasks_path)}")
+
+            # Effectiveness summary, per channel: not for the reviewer (that's
+            # ch_tasks above), but for evaluating the mining algorithm's own
+            # yield, broken down by bucket. Written once the channel's clips
+            # are all done, regardless of whether any task was produced, so a
+            # channel that yielded nothing this sweep still gets a (mostly
+            # zero) report showing that.
+            if bucket_stats and not dry_run:
+                reports_dir = os.path.join(cfg.staging_dir, nvr, "reports")
+                summary_path = _write_channel_summary(reports_dir, nvr, ch, sweep_stamp, bucket_stats)
+                logger.info(f"  ch{ch:02d}: wrote effectiveness summary -> "
+                            f"{os.path.basename(summary_path)}")
     finally:
         if manifest_file is not None:
             manifest_file.close()

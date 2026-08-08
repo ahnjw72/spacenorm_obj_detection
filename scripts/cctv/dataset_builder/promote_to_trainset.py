@@ -6,7 +6,8 @@ hand-reviewed staging folder. NEVER on raw, unreviewed pre-labels. It:
 
   1. Pairs each exported label .txt with its image BY FILENAME. Label Studio omits
      image files for Local-Storage tasks (the export's images/ is empty), so pass
-     --images <reviewing dir> to pair the corrected labels with the original JPEGs.
+     --images <reviewing dir> to pair the corrected labels with the original PNGs
+     (build_dataset stages losslessly, ALGORITHM.md 3 — never JPEGs).
   2. Skips any frame whose basename is already present in an existing setNNNN, so
      two Label Studio exports with overlapping task ranges cannot copy the same
      frame into two sets (which would double its training weight and let a stale
@@ -63,14 +64,14 @@ def find_pairs(export_dir, images_root=None):
     Label Studio omits the image FILES when tasks are served from Local Storage
     (the export's images/ is empty), so images are indexed from both the export
     dir and the optional images_root (the reviewing tree, which holds the original
-    JPEGs under the same descriptive basenames). `classes.txt` is ignored.
+    PNGs under the same descriptive basenames). `classes.txt` is ignored.
 
-    Returns (sorted [(jpg, txt), ...], n_label_files_seen)."""
-    index = {}   # basename.jpg -> path (first occurrence wins)
+    Returns (sorted [(png, txt), ...], n_label_files_seen)."""
+    index = {}   # basename.png -> path (first occurrence wins)
     for root in [export_dir] + ([images_root] if images_root else []):
         for r, _dirs, files in os.walk(root):
             for f in files:
-                if f.lower().endswith(".jpg"):
+                if f.lower().endswith(".png"):
                     index.setdefault(f, os.path.join(r, f))
 
     pairs, n_labels = [], 0
@@ -79,9 +80,9 @@ def find_pairs(export_dir, images_root=None):
             if not f.lower().endswith(".txt") or f == "classes.txt":
                 continue
             n_labels += 1
-            jpg = index.get(os.path.splitext(f)[0] + ".jpg")
-            if jpg:
-                pairs.append((jpg, os.path.join(r, f)))
+            png = index.get(os.path.splitext(f)[0] + ".png")
+            if png:
+                pairs.append((png, os.path.join(r, f)))
             else:
                 print(f"  [skip] no image found for label {f}")
     return sorted(pairs), n_labels
@@ -120,11 +121,12 @@ def already_promoted():
     same frame into two different sets. Both copies then land in the training list,
     so those frames get double weight and, worse, a frame corrected in the later
     review is contradicted by its stale twin. Nothing downstream detects this:
-    count_files.py checks jpg/txt pairing within a set, not identity across sets."""
+    count_files.py checks jpg/txt pairing within a set (and doesn't know about
+    .png at all yet), not identity across sets."""
     seen = {}
     for d in _existing_set_dirs():
         for name in os.listdir(d):
-            if name.lower().endswith(".jpg"):
+            if name.lower().endswith(".png"):
                 seen.setdefault(name, d.name)
     return seen
 
@@ -210,7 +212,7 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--staging", required=True,
                     help="Label Studio YOLO export dir (or a hand-reviewed folder) to promote")
-    ap.add_argument("--images", help="Directory tree with the original JPEGs (the reviewing "
+    ap.add_argument("--images", help="Directory tree with the original PNGs (the reviewing "
                     "dir). Required when the LS export has an empty images/ (Local-Storage "
                     "tasks); labels are paired to images by filename.")
     ap.add_argument("--set-name", help="Target set folder name (default: next setNNNN)")
@@ -287,9 +289,9 @@ def main():
 
     dropped_total = 0
     malformed_total = []
-    for jpg, txt in pairs:
-        base = os.path.basename(jpg)
-        shutil.copy2(jpg, set_dir / base)
+    for png, txt in pairs:
+        base = os.path.basename(png)
+        shutil.copy2(png, set_dir / base)
         dropped, malformed = copy_label_filtered(
             txt, set_dir / (os.path.splitext(base)[0] + ".txt"), remap)
         dropped_total += dropped

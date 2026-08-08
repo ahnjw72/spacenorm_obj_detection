@@ -18,10 +18,17 @@ tracking, no second model):
     drifts. Flagged for review as SUSPECT_STATIC_FP — a human confirms
     mannequin (delete -> hard negative) vs a real person who stood still.
 
-Pass 1 collects detections + tiny illumination-normalisable crops (memory-light);
-pass 2 re-decodes only the selected frames for their full images.
+Pass 1 collects detections + tiny illumination-normalisable crops (memory-light)
+AND caches every processed step's full frame, losslessly, to a per-clip temp
+directory keyed by raw_idx. Selection then reads back only the wanted frames
+from that cache — there is no second video decode — and the whole cache is
+deleted immediately after, win or lose. See ALGORITHM.md 3 for why the cached
+copy must be lossless and why it is staged to disk rather than held in RAM.
 """
 import logging
+import os
+import shutil
+import tempfile
 from collections import Counter
 
 import cv2
@@ -197,27 +204,33 @@ def _build_tracks(person_steps, iou_track, max_gap_steps):
 
 def _track_box_at(seq, s, prod_conf, max_gap_steps,
                   max_disp_frac, max_scale_ratio):
-    """(box, source) of a track at step s, or (None, None).
+    """(box, source, conf) of a track at step s, or (None, None, None).
 
     source: 'strong' (present, conf>=prod), 'weak' (present, conf<prod),
-            'interp' (interpolated across a short gap)."""
+            'interp' (interpolated across a short gap). ``conf`` is the
+            detector's own confidence for 'strong'/'weak' (a real detection
+            exists at this step); 'interp' has no detection at this step at
+            all, so there is nothing real to report and conf is None rather
+            than a fabricated (e.g. averaged) number."""
     if s < seq[0][0] or s > seq[-1][0]:
-        return None, None
+        return None, None, None
     prev = nxt = None
     for (ss, det) in seq:
         if ss == s:
-            return det["box"], ("strong" if det["conf"] >= prod_conf else "weak")
+            return (det["box"],
+                    ("strong" if det["conf"] >= prod_conf else "weak"),
+                    det["conf"])
         if ss < s:
             prev = (ss, det)
         elif ss > s:
             nxt = (ss, det); break
     if prev is None or nxt is None or nxt[0] - prev[0] > max_gap_steps:
-        return None, None
+        return None, None, None
     if not _bridgeable(prev[1]["box"], nxt[1]["box"],
                        max_disp_frac, max_scale_ratio):
-        return None, None      # implausible jump -> likely an ID switch, not a gap
+        return None, None, None      # implausible jump -> likely an ID switch, not a gap
     frac = (s - prev[0]) / (nxt[0] - prev[0])
-    return interp_box(prev[1]["box"], nxt[1]["box"], frac), "interp"
+    return interp_box(prev[1]["box"], nxt[1]["box"], frac), "interp", None
 
 
 def _median_box(boxes):
@@ -302,7 +315,13 @@ CATEGORY_CAP_KEYS = {
     "Intp_FN": "n_intpfn", "Weak_FN": "n_weakfn",
     "SFP": "n_sfp", "FP": "n_fp",
     "Anchor_start": "n_anchor_start", "Anchor_end": "n_anchor_end",
+    "Track_context": "n_context",
 }
+
+# Categories exempt from _select_frames's per-clip quotas: every candidate is
+# kept, not an evenly-spread subsample of one. Currently just Track_context —
+# see its rationale where n_context is computed in mine_clip.
+UNCAPPED_CATEGORIES = {"Track_context"}
 
 
 def frame_categories(fr):
@@ -381,6 +400,10 @@ def _select_frames(frames, cfg):
     cap_of = {"Intp_FN": cfg.max_intpfn_per_clip, "Weak_FN": cfg.max_weakfn_per_clip,
               "SFP": cfg.max_sfp_per_clip, "FP": cfg.max_fp_per_clip,
               "Anchor_start": cfg.max_anchor_per_clip, "Anchor_end": cfg.max_anchor_per_clip}
+    # Uncapped categories (currently just Track_context) get every candidate,
+    # not an evenly-spread subsample: len(frames) is a cap no real count can
+    # ever reach.
+    cap_of.update({cat: len(frames) for cat in UNCAPPED_CATEGORIES})
     cats_of = [frame_categories(fr) for fr in frames]
 
     # Per-category candidate step-index lists (ascending, by construction).
@@ -422,8 +445,10 @@ def mine_clip(clip_path, model, cfg, persist=None, update_persist=False):
 
     { raw_idx, width, height,
       n_intpfn, n_weakfn, n_anchor_start, n_anchor_end, n_fp, n_sfp, n_person, animals [names],
-      persons [(box, source, tid)], animal_boxes [(box, cls)],
-      suspect [(box, kind, tid)]  kind in {'static','transient'},
+      persons [(box, source, tid, cats, conf)], animal_boxes [(box, cls, conf)],
+      suspect [(box, kind, tid, conf)]  kind in {'static','transient'},
+      conf is None for an 'interp' box (no real detection exists at that step),
+      else the detector's own confidence for the box,
       image (BGR ndarray) }
 
     There is no single per-frame "reason": a frame independently belongs to any
@@ -436,11 +461,25 @@ def mine_clip(clip_path, model, cfg, persist=None, update_persist=False):
     prod_conf = cfg.conf_thresh
     max_gap = int(cfg.max_gap_frames)
 
-    # ---- Pass 1: detections + crops + track metadata ----
+    # ---- Pass 1: detections + crops + track metadata + a lossless per-step
+    # frame cache. The cache holds the EXACT array _detect just scored, written
+    # to a per-clip temp dir keyed by raw_idx: a frame later selected for review
+    # (and, eventually, retraining) must be byte-identical to what produced its
+    # recorded confidence, which neither a second video decode nor a lossy
+    # re-encode (e.g. JPEG) can guarantee — see ALGORITHM.md 3. Whatever is not
+    # selected is deleted with the rest of this directory before mine_clip
+    # returns, so nothing here is ever visible outside one clip's processing.
     cap = cv2.VideoCapture(clip_path)
     if not cap.isOpened():
         logger.warning(f"      could not open clip {clip_path}")
         return [], []
+    tmp_root = os.path.join(cfg.staging_dir, ".tmp_pass1")
+    os.makedirs(tmp_root, exist_ok=True)
+    tmp_dir = tempfile.mkdtemp(dir=tmp_root)
+
+    def _cache_path(idx):
+        return os.path.join(tmp_dir, f"{idx:06d}.png")
+
     step_meta = []
     raw_idx = -1
     while True:
@@ -457,8 +496,13 @@ def mine_clip(clip_path, model, cfg, persist=None, update_persist=False):
         persons, animals = _detect(model, img, cfg.img_size, cfg.track_conf)
         pdets = [{"box": box, "conf": c, "crop": _crop(gray, box)} for (box, c) in persons]
         step_meta.append({"raw": raw_idx, "W": W, "H": H, "persons": pdets, "animals": animals})
+        # Compression level, not quality: PNG is always lossless, level only
+        # trades write speed for size. Kept low since most of these frames are
+        # deleted unread a moment later.
+        cv2.imwrite(_cache_path(raw_idx), img, [cv2.IMWRITE_PNG_COMPRESSION, 1])
     cap.release()
     if not step_meta:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
         return [], []
 
     tracks = _build_tracks([m["persons"] for m in step_meta], cfg.iou_track, max_gap)
@@ -481,6 +525,22 @@ def mine_clip(clip_path, model, cfg, persist=None, update_persist=False):
                 ends.add(q)     # q CLOSES the gap
         anchor_start[tid] = starts
         anchor_end[tid] = ends
+    # A track that bridges even one gap is excluded from transient-FP
+    # consideration entirely (see fp_tids below) — it has anchor_start/
+    # anchor_end entries iff it does, so this is a free byproduct of the loop
+    # just run, not a new computation.
+    track_has_bridged_gap = {tid: bool(anchor_start[tid] or anchor_end[tid]) for tid in tracks}
+    # A track that ever went weak, or ever bridged a gap, is direct temporal
+    # evidence of the SAME real object being inconsistently detected — its
+    # ordinary `strong` steps are then valuable CONTEXT for a reviewer judging
+    # that inconsistency (what did the detector get right on this exact
+    # person, right next to where it got it wrong?), not just background
+    # agreement. A track that is uniformly strong throughout has no such
+    # evidence to contextualise and is left as ordinary `easy`.
+    track_has_context = {
+        tid: track_has_bridged_gap[tid] or any(d["conf"] < prod_conf for _s, d in seq)
+        for tid, seq in tracks.items()
+    }
     W0, H0 = step_meta[0]["W"], step_meta[0]["H"]
     # Decide SFPs using the PRIOR persistence state, then fold this clip in.
     # Only FIXTURE-LIKE tracks (see _static_fp_tids) are folded in, and add_clip
@@ -492,54 +552,134 @@ def mine_clip(clip_path, model, cfg, persist=None, update_persist=False):
     # ---- Classify every processed step ----
     frames = []
     for s, meta in enumerate(step_meta):
-        oracle = []  # (tid, box, source)
+        oracle = []  # (tid, box, source, conf)
         for tid, seq in tracks.items():
-            box, src = _track_box_at(seq, s, prod_conf, max_gap,
-                                     cfg.bridge_max_disp_frac,
-                                     cfg.bridge_max_scale_ratio)
+            box, src, conf = _track_box_at(seq, s, prod_conf, max_gap,
+                                           cfg.bridge_max_disp_frac,
+                                           cfg.bridge_max_scale_ratio)
             if box is not None:
-                oracle.append((tid, box, src))
+                oracle.append((tid, box, src, conf))
 
         # Transient-FP tids that actually produce a >=prod detection at this step.
+        # Two independent gates, both required: (1) the track's TOTAL detection
+        # count is short (track_len <= fp_max_track_len) -- the case-2 "very
+        # short strong detection" signature; (2) the track has NO bridged gap
+        # anywhere in it. Gate (2) exists because (1) alone cannot tell apart a
+        # single brief phantom (2 CONSECUTIVE detections, span 1 step) from two
+        # detections bridged across up to max_gap_frames (~1s) of total absence
+        # -- and the second shape is structurally identical to a genuine person
+        # briefly, completely occluded then reappearing at nearly the same spot,
+        # which is exactly this project's PRIMARY target (req-1's flicker), not
+        # a phantom. Verified directly: two constructed, wholly independent
+        # isolated strong detections ~1s apart (no weak evidence anywhere, so
+        # neither looks like case-1 either) still satisfy _bridgeable and get
+        # merged + confidently interpolated -- track shape alone cannot
+        # distinguish "one real, briefly-occluded object" from "two unrelated
+        # phantoms that happened to land in compatible boxes" (the same kind of
+        # residual, appearance-free limitation as the ID-switch risk in §7).
+        # Given that ambiguity is unresolvable from geometry, a gap-bridging
+        # track is deliberately given the BENEFIT OF THE DOUBT (routed to the
+        # ordinary Anchor_start/Intp_FN/Anchor_end path -- "assume real, flag
+        # for the reviewer to check", per §4c's existing anchor-review guidance)
+        # rather than defaulted to SUSPECT_FP ("assume false") the way a truly
+        # gap-free short track still is.
         fp_tids = set()
         for tid, seq in tracks.items():
-            if tid in sfp_tids or track_len[tid] > cfg.fp_max_track_len:
+            if (tid in sfp_tids or track_len[tid] > cfg.fp_max_track_len
+                    or track_has_bridged_gap[tid]):
                 continue
             for (ss, det) in seq:
                 if ss == s and det["conf"] >= prod_conf:
                     fp_tids.add(tid)
 
         suspect, person_labels = [], []
-        intp_fn, weak_fn, a_start, a_end = [], [], [], []
-        for (tid, box, src) in oracle:
-            if tid in sfp_tids:
-                suspect.append((box, "static", tid)); continue
-            if tid in fp_tids:
-                suspect.append((box, "transient", tid)); continue
-            person_labels.append((box, src, tid))             # real-person pre-label
-            # 'weak'/'interp' already mean "no strong (>=conf_thresh) box for this
-            # track here" (_track_box_at guarantees a track is strong XOR weak XOR
-            # interp at any one step) — that's a miss by definition, no further
-            # test needed.
-            if src == "interp":
-                intp_fn.append(box)                          # interpolated gap the model missed
-            elif src == "weak":
-                weak_fn.append(box)                          # sub-threshold detection the model missed
-            elif s in anchor_start.get(tid, ()):
-                a_start.append(box)                          # solid detection OPENING an interp gap
-            elif s in anchor_end.get(tid, ()):
-                a_end.append(box)                            # solid detection CLOSING an interp gap
+        intp_fn, weak_fn, a_start, a_end, ctx = [], [], [], [], []
+        for (tid, box, src, conf) in oracle:
+            # ANCHOR dimension — INDEPENDENT of the SUSPECT dimension below, of
+            # the RESULT dimension, and of itself (start vs end). Whether this
+            # step borders a bridgeable gap in its OWN track is a structural
+            # fact about track topology (computed in anchor_start/anchor_end
+            # without regard to confidence or suspicion, §4), not a property of
+            # what the model produced, or what the miner otherwise suspects,
+            # here. So a box already flagged SUSPECT_FP/SUSPECT_STATIC_FP CAN
+            # also be an anchor: e.g. a short (<= fp_max_track_len), otherwise
+            # unrelated track can still bridge a gap between its two total
+            # sightings, so its correctly-suspected endpoint should still be
+            # findable via n_anchor_start/n_anchor_end, and, via the tid it
+            # shares with the gap's interior Intp_FN fills, let a reviewer
+            # connect "this bracket is a suspected phantom" to "so are the
+            # person boxes interpolated between its two brackets" (§4b, §7).
+            # Before this fix, `continue` on the SUSPECT branches skipped this
+            # entirely, silently discarding the anchor fact for any suspect
+            # box — the same class of bug the RESULT/ANCHOR independence fix
+            # (§4b) addressed one level up. A single step can also be BOTH an
+            # Anchor_end (closing one gap) and an Anchor_start (opening the
+            # next) at once, since anchor_start[tid]/anchor_end[tid] are
+            # independent sets, not alternatives (§4's "intermixed detections"
+            # worked example). 'interp' can never match either set: both are
+            # built exclusively from `seq`, which holds only DETECTED steps, so
+            # an interpolated step is provably never a member.
+            is_start = s in anchor_start.get(tid, ())            # detection OPENING an interp gap
+            is_end = s in anchor_end.get(tid, ())                # detection CLOSING an interp gap
+            if is_start:
+                a_start.append(box)
+            if is_end:
+                a_end.append(box)
 
-        animal_labels = [(b, cls) for (b, c, cls) in meta["animals"] if c >= prod_conf]
-        animal_names = sorted({TRAINSET_NAMES[cls] for (_b, cls) in animal_labels})
-        n_static = sum(1 for (_b, _k, _t) in suspect if _k == "static")
-        n_transient = sum(1 for (_b, _k, _t) in suspect if _k == "transient")
+            # SUSPECT dimension — mutually exclusive by construction (a track
+            # cannot satisfy both static_min_frames and <= fp_max_track_len
+            # under any sane config): is this box's OWN track itself considered
+            # a likely false detection (persistent apparatus, or an isolated
+            # no-temporal-support blip)? This governs box ORIGIN (rendered
+            # SUSPECT_FP/SUSPECT_STATIC_FP, withheld from the pre-label .txt)
+            # — it says nothing about whether this step also borders a gap.
+            if tid in sfp_tids:
+                suspect.append((box, "static", tid, conf))
+            elif tid in fp_tids:
+                suspect.append((box, "transient", tid, conf))
+            else:
+                # cats: this specific box's own category tags (not the frame's
+                # aggregate counts), threaded through to the LS task's per-box
+                # `meta` so a reviewer can see why a given box exists without
+                # cross-referencing the frame-level counts (useful once a
+                # frame carries more than one box, §5b).
+                cats = []
+                # RESULT dimension — mutually exclusive by construction: 'weak'/
+                # 'interp' already mean "no strong (>=conf_thresh) box for this
+                # track here" (_track_box_at guarantees a track is strong XOR
+                # weak XOR interp at any one step) — that's a miss by
+                # definition, no further test needed. 'strong' falls through
+                # (nothing to append here).
+                if src == "interp":
+                    intp_fn.append(box)                        # interpolated gap the model missed
+                    cats.append("Intp_FN")
+                elif src == "weak":
+                    weak_fn.append(box)                        # sub-threshold detection the model missed
+                    cats.append("Weak_FN")
+                if is_start:
+                    cats.append("Anchor_start")
+                if is_end:
+                    cats.append("Anchor_end")
+                if not cats and track_has_context[tid]:
+                    # A plain strong, non-anchor step whose track is
+                    # otherwise inconsistent (weak somewhere, or bridged a
+                    # gap) elsewhere. Kept as direct evidence of the
+                    # detector's own inconsistency on this exact object,
+                    # exempt from the easy budget (UNCAPPED_CATEGORIES).
+                    ctx.append(box)
+                    cats.append("Track_context")
+                person_labels.append((box, src, tid, cats, conf))    # real-person pre-label
+
+        animal_labels = [(b, cls, c) for (b, c, cls) in meta["animals"] if c >= prod_conf]
+        animal_names = sorted({TRAINSET_NAMES[cls] for (_b, cls, _c) in animal_labels})
+        n_static = sum(1 for (_b, _k, _t, _c) in suspect if _k == "static")
+        n_transient = sum(1 for (_b, _k, _t, _c) in suspect if _k == "transient")
 
         frames.append({
             "raw_idx": meta["raw"], "width": meta["W"], "height": meta["H"],
             "n_intpfn": len(intp_fn), "n_weakfn": len(weak_fn),
             "n_anchor_start": len(a_start), "n_anchor_end": len(a_end),
-            "n_fp": n_transient, "n_sfp": n_static,
+            "n_fp": n_transient, "n_sfp": n_static, "n_context": len(ctx),
             "n_person": len(person_labels), "animals": animal_names,
             "persons": person_labels, "animal_boxes": animal_labels, "suspect": suspect,
         })
@@ -547,32 +687,26 @@ def mine_clip(clip_path, model, cfg, persist=None, update_persist=False):
     # ---- Select: independent per-category quotas (see _select_frames) ----
     selected, n = _select_frames(frames, cfg)
     if not selected:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
         return [], frames
 
-    # ---- Pass 2: decode only the selected frames ----
-    wanted = {fr["raw_idx"]: fr for fr in selected}
-    cap = cv2.VideoCapture(clip_path)
-    raw_idx = -1
-    while wanted:
-        if not cap.grab():
-            break
-        raw_idx += 1
-        if raw_idx not in wanted:
-            continue
-        ok, img = cap.retrieve()
-        if ok:
-            wanted[raw_idx]["image"] = img
-        del wanted[raw_idx]
-    cap.release()
-
-    out = [fr for fr in selected if fr.get("image") is not None]
+    # ---- Read the selected frames back from the pass-1 cache (no re-decode:
+    # this is the exact array _detect scored for each of these steps) ----
+    out = []
+    for fr in selected:
+        img = cv2.imread(_cache_path(fr["raw_idx"]))
+        if img is not None:
+            fr["image"] = img
+            out.append(fr)
     if len(out) < len(selected):
-        # Pass 2 re-decodes the clip to fetch images for the selected frames. A
-        # frame whose retrieve() fails is dropped, which silently loses a mined
-        # candidate — so say so rather than letting the count quietly shrink.
-        # Observed occasionally on freshly-written clip files.
-        logger.warning(f"      pass 2 recovered only {len(out)}/{len(selected)} "
-                       f"selected frames ({len(selected) - len(out)} undecodable, dropped)")
+        # A frame missing from its own clip's just-written cache would be a
+        # cv2.imwrite failure in pass 1 (disk full, permissions) rather than
+        # anything about the video itself — worth surfacing loudly either way,
+        # since it silently loses a mined candidate.
+        logger.warning(f"      {len(selected) - len(out)}/{len(selected)} selected "
+                       f"frame(s) missing from the pass-1 cache, dropped")
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+
     logger.info(f"      mined: {n['Intp_FN']} intpFN / {n['Weak_FN']} weakFN / "
                 f"{n['Anchor_start']}+{n['Anchor_end']} anchorS/E / "
                 f"{n['SFP']} SFP / {n['FP']} FP / {n['easy']} easy")
@@ -603,15 +737,18 @@ def _draw_box(img, box, color, label):
 
 
 def _draw_annotations(img, fr):
-    for (box, src, tid) in fr["persons"]:
+    for (box, src, tid, cats, conf) in fr["persons"]:
+        tag = f"T{tid}" + ("/" + "+".join(cats) if cats else "")
+        conf_sfx = f" {conf:.2f}" if conf is not None else ""
         if src == "strong":
-            _draw_box(img, box, _COLORS["strong"], f"T{tid} person")
+            _draw_box(img, box, _COLORS["strong"], f"{tag} person{conf_sfx}")
         else:  # weak / interp -> production missed it (this is the FN)
-            _draw_box(img, box, _COLORS["miss"], f"T{tid} MISS/{src}")
-    for (box, cls) in fr["animal_boxes"]:
-        _draw_box(img, box, _COLORS["animal"], TRAINSET_NAMES[cls])
-    for (box, kind, tid) in fr["suspect"]:
-        label = f"T{tid} " + ("STATIC-FP?" if kind == "static" else "FP?")
+            _draw_box(img, box, _COLORS["miss"], f"{tag} MISS/{src}{conf_sfx}")
+    for (box, cls, conf) in fr["animal_boxes"]:
+        _draw_box(img, box, _COLORS["animal"], f"{TRAINSET_NAMES[cls]} {conf:.2f}")
+    for (box, kind, tid, conf) in fr["suspect"]:
+        conf_sfx = f" {conf:.2f}" if conf is not None else ""
+        label = f"T{tid} " + ("STATIC-FP?" if kind == "static" else "FP?") + conf_sfx
         _draw_box(img, box, _COLORS[kind], label)
     cats = "+".join(sorted(frame_categories(fr)))
     banner = (f"{cats}  iFN:{fr['n_intpfn']} wFN:{fr['n_weakfn']} "

@@ -47,14 +47,22 @@ Instead, per clip, the miner:
      here, but the track exists before & after, so the box is interpolated. *Primary target.*
    - **Weak_FN** — the model *did* fire here but **below** `conf_thresh` (a weak,
      sub-threshold detection).
-   - **Anchor_start** / **Anchor_end** — a **solid** detection (≥ `conf_thresh`)
+   - **Anchor_start** / **Anchor_end** — **any** detection (**strong or weak**)
      that **borders** an interpolated gap: `Anchor_start` **opens** the gap (the
      detection just before it), `Anchor_end` **closes** it (just after). These are
      the "seemingly true" frames used to fill an `Intp_FN`, and are themselves
-     **strong FP candidates** (if the anchor is a false positive, the interpolated
+     **FP candidates** (if the anchor is a false positive, the interpolated
      FN is spurious), so they get their own reasons to double-check during review.
-   - **FP** — a production detection whose track is transient (≤ `fp_max_track_len`
-     frames): an isolated blip with no temporal support.
+     Confidence doesn't gate this: a **weak** anchor is tagged `Anchor_start`/
+     `Anchor_end` *in addition to* `Weak_FN`, not instead of it — both are true
+     facts about the same box (see `ALGORITHM.md` §4b).
+   - **FP** — a production detection whose track is **gap-free** and transient
+     (≤ `fp_max_track_len` frames): an isolated blip with no temporal support at
+     all, before or after. A track that bridges even one gap is *never* tagged
+     `FP`, regardless of how few total detections it has — that shape is
+     indistinguishable from a real person briefly, completely occluded, so it is
+     routed to the ordinary flicker path (`Anchor_start`/`Intp_FN`/`Anchor_end`)
+     instead (see `ALGORITHM.md` §4b).
    - **SFP (static FP)** — a **persistent, stationary, high-confidence** person
      track whose box appearance barely changes over time under an
      **illumination-invariant** measure (zero-mean normalized cross-correlation).
@@ -103,8 +111,8 @@ lives in `<reviewing>/<nvr>/persistence/ch<NN>.json` and survives restarts;
 decisions use the *prior* state, then the current clip is folded in. Disable with
 `"cross_clip_persistence": false`.
 
-Two properties of this map are easy to get wrong, and both were (see `ALGORITHM.md`
-§6a/§6b for the full treatment and the measurements):
+Two properties of this map are easy to get wrong (see `ALGORITHM.md` §6a/§6b for
+the full treatment):
 
 - **What may be written into it is far stricter than what gets flagged.** Flagging
   uses `static_min_frames` (10 steps = 0.66 s), so a briefly-paused person can be
@@ -116,16 +124,14 @@ Two properties of this map are easy to get wrong, and both were (see `ALGORITHM.
   cannot break, because reviewers correct frames, never the map.
 - **The stored value is conditional.** It is `hits / fixture_clips`, where
   `fixture_clips` counts only clips that contributed a fixture-like track — clips
-  with none carry no evidence and are not counted. Under the earlier
-  divide-by-all-clips definition the signal never fired once: after 144 clips per
-  channel the highest cell value across 13 channels was 0.056 against a threshold of
-  0.6. Each sweep now logs `fixture_clips`, cell count and observed `top_cell` per
-  channel, since `persist_thresh` is only meaningful relative to that maximum.
+  with none carry no evidence and are not counted, which is what lets a real
+  fixture's cell value actually converge toward 1.0. Each sweep logs
+  `fixture_clips`, cell count and observed `top_cell` per channel, since
+  `persist_thresh` is only meaningful relative to that maximum.
 
 Changing `persist_grid_cols`/`persist_grid_rows`, or upgrading past a state-version
 change, invalidates an existing map: it is moved aside to `ch<NN>.json.v<N>.bak` and
-rebuilt. (Previously the grid size was read *from the file*, so editing it in the
-config silently had no effect.)
+rebuilt, since neither the stored ratio nor the cell indexing survives such a change.
 
 ### Known limitations
 This catches *flicker* FNs, *transient* FPs, and *static* FPs (within-clip and
@@ -219,8 +225,8 @@ resuming yields exactly 360 with no duplicates, and a third run is a no-op.
 - Clips that **failed to download** are deliberately *not* ledgered, so a later run
   retries them — a window may simply have had no recording yet. Expect these
   (144 of 768 attempts in one measured sweep); they are logged and skipped.
-- Tasks now arrive as **one file per channel**, so import once per channel
-  (`tasks_<stamp>_ch*.json`) instead of once per sweep.
+- Tasks arrive as **one file per channel** (`tasks_<stamp>_ch*.json`), so import
+  once per channel rather than once per sweep.
 
 ### Time window a sweep covers
 
@@ -248,13 +254,20 @@ schedule the command externally (cron / systemd timer) — there is no internal 
 
 ```
 <staging_dir>/<nvr>/ch<NN>/<bucket>/
-    <nvr>_ch<NN>_<bucket>_<stamp>_<raw_idx>[_ani-..].jpg + .txt   (one pair per selected frame — flat, no per-category subfolder)
+    <nvr>_ch<NN>_<bucket>_<stamp>_<raw_idx>[_ani-..].png + .txt   (one pair per selected frame — flat, no per-category subfolder)
 <staging_dir>/<nvr>/labelstudio/tasks_<stamp>_ch<NN>.json  Label Studio import (one per channel, rewritten after every clip)
 <staging_dir>/<nvr>/mined_clips.txt   resume ledger: one clip_id per line, appended after each clip is fully written
 <staging_dir>/<nvr>/persistence/ch<NN>.json         cross-clip fixture map (persists across sweeps)
 <staging_dir>/<nvr>/manifest.csv   image, clip_id, channel, bucket, n_person, n_intpfn, n_weakfn, n_anchor_start, n_anchor_end, n_sfp, n_fp, n_animal, animals, track_ids
 <staging_dir>/.clips/              downloaded mp4s (removed unless keep_clips; with keep_clips also <clip>_annotated.mp4)
+<staging_dir>/.tmp_pass1/          transient per-clip lossless frame cache (flicker_miner.mine_clip); deleted per clip, purged at sweep start
 ```
+
+Images are PNG, not JPEG: each staged file is read back verbatim from `mine_clip`'s
+pass-1 frame cache, so it is byte-identical to the array the detector actually
+scored — a lossy re-encode would let the saved copy (the one Label Studio shows
+and, eventually, retraining trains on) silently drift from the confidence
+recorded in the task JSON. See `ALGORITHM.md` §3.
 
 A frame is **not** filed into a single category's folder — a frame commonly
 qualifies for more than one at once (e.g. an interpolated miss *and* an
@@ -349,7 +362,7 @@ register it once and never touch it again.
 
 > **Why no Sync:** Sync walks the whole tree recursively and does *not* pick out
 > `tasks_*.json`. With the toggle **on** it makes a task out of every file it finds
-> (each `.jpg`, `.txt`, and `.json`) with no pre-labels; with it **off** it tries
+> (each `.png`, `.txt`, and `.json`) with no pre-labels; with it **off** it tries
 > to parse each file as a JSON task and chokes on the images. Either way your
 > pre-label predictions are lost. Tasks come from **Import** (step 4), which reads
 > the `predictions` in each `tasks_*.json`; Local Storage only serves the images.
@@ -371,13 +384,21 @@ Open each task and correct the pre-labels:
   person the model missed.
 - **`SUSPECT_FP`** (transient) and **`SUSPECT_STATIC_FP`** (mannequin/poster):
   if it's truly not a person, delete the box (→ hard negative); if it *is* a real
-  person, relabel it `person`. Click a suspect box to see its `track N` id in the
-  region info panel.
+  person, relabel it `person`. Click a box to see its `track N` id and detector
+  confidence (`conf 0.XX`) in the region info panel — interpolated boxes (no
+  real detection at that step) show no confidence, since there isn't one to
+  report. A suspect box can *also* be tagged an anchor
+  (`n_anchor_start`/`n_anchor_end > 0` on its frame) if its track borders a
+  bridged gap — that's a signal worth acting on: it means the `Intp_FN` frames
+  interpolated on either side of it share its `track_id` and were guessed from
+  a bracket the tool itself doubts, so if you delete this suspect box, go check
+  those `Intp_FN` frames too (filter `track_ids` for the same N) — they're
+  likely spurious as well (`ALGORITHM.md` §4b).
 - Add any person/animal the model missed entirely.
 - Filter/sort in the Data Manager by the task `data` columns: `clip_id`,
   `channel`, `bucket`, `num_detected`, `n_person`, `track_ids`, `frame_idx`,
   `capture_time`, and the per-category counts `n_intpfn` / `n_weakfn` /
-  `n_anchor_start` / `n_anchor_end` / `n_sfp` / `n_fp`. Sort by `capture_time` to
+  `n_anchor_start` / `n_anchor_end` / `n_sfp` / `n_fp` / `n_easy`. Sort by `capture_time` to
   put frames in chronological order across clips and channels (task import order
   otherwise groups by channel first, and `clip_id`'s string form doesn't sort
   chronologically); filter to one `clip_id` and sort by `frame_idx` to walk one
@@ -387,15 +408,17 @@ Open each task and correct the pre-labels:
   rather than a single label. Review `Anchor_start`/`Anchor_end` frames as FP
   candidates — if an anchor detection is a false positive, delete it (its
   `Intp_FN` gap fills are spurious too); filter `n_anchor_start > 0 OR
-  n_anchor_end > 0` to catch every anchor-containing frame. **Expect very few:**
-  anchors were 0.14 % of selected frames in a measured sweep, because ~98 % of
-  flicker gaps are bounded by a *weak* detection on both sides rather than a solid
-  one, so a gap's bracketing detections almost always surface as `n_weakfn > 0`
-  instead (`ALGORITHM.md` §4). To hunt the
+  n_anchor_end > 0` to catch every gap-bordering detection, whether the endpoint
+  itself was strong or weak (a weak anchor also carries `n_weakfn > 0` on the
+  same box — both counts describe the same detection, not alternatives; see
+  `ALGORITHM.md` §4b). `n_easy` is 1 exactly when every other per-category count
+  above is 0 (`flicker_miner.frame_categories`'s fallback, see `ALGORITHM.md`
+  §5) — filter `n_easy = 0` to hide every plain frame in one shot instead of
+  ANDing six counts to 0, e.g. when a clip's `easy` quota (`max_easy_per_clip`)
+  still leaves more of them in the queue than you want to look at. To hunt the
   program's **missed false positives** — objects it drew as real `person` on
-  otherwise-unflagged frames — filter **`n_intpfn = 0 AND n_weakfn = 0 AND
-  n_anchor_start = 0 AND n_anchor_end = 0 AND n_sfp = 0 AND n_fp = 0 AND
-  num_detected > 0`** and delete any box that isn't actually a person. Use
+  otherwise-unflagged frames — filter **`n_easy = 1 AND num_detected > 0`** and
+  delete any box that isn't actually a person. Use
   `clip_id` to concentrate a review session on one clip (or a chosen few) at a
   time instead of the whole sweep.
 
@@ -414,7 +437,7 @@ Two independent causes — check both:
    enabled, the endpoint 404s until the NVR subdir is added as Local Storage.
    Fastest confirmation — open the image URL directly in your logged-in browser:
    ```
-   http://<host>:8080/data/local-files/?d=reviewing/<nvr>/ch00/morning/<some>.jpg
+   http://<host>:8080/data/local-files/?d=reviewing/<nvr>/ch00/morning/<some>.png
    ```
    **404** (authenticated) → the path isn't covered by a registered storage → do
    step 3. **Image** → serving is fine; the fault is elsewhere.
@@ -452,7 +475,7 @@ Notes:
 | `max_gap_frames` | `15` | max processed-step gap to bridge/interpolate a track — **15 steps = 1.0 s** at stride 2, 30 fps |
 | `bridge_max_disp_frac` | `0.45` | reject a gap bridge whose **total** centroid displacement across the gap exceeds this × mean box-diagonal. Calibrated as a high percentile of the band `iou_track` already permits (feasible max 0.523); any value ≥ that maximum is dead code. Recalibrate if `iou_track` changes |
 | `bridge_max_scale_ratio` | `3.2` | reject a gap bridge whose two bracketing boxes differ in area by more than this factor. Feasible max is exactly `1/iou_track` = 3.333 |
-| `fp_max_track_len` | `2` | tracks this short with a ≥`conf_thresh` detection → suspected (transient) FP — **2 steps = 0.13 s** |
+| `fp_max_track_len` | `2` | **gap-free** tracks this short with a ≥`conf_thresh` detection → suspected (transient) FP — **2 steps = 0.13 s**. A track with a bridged gap is excluded regardless of this value (`ALGORITHM.md` §4b) |
 | `static_min_frames` | `10` | minimum track length to be **flagged** SFP — **10 steps = 0.66 s**, deliberately short (a briefly-paused person may be flagged; that costs one relabel click) |
 | `static_max_move_frac` | `0.15` | centroid spread < this × box-diagonal → stationary |
 | `static_motion_thresh` | `0.08` | mean (1−ZNCC) below this → appearance-static → SFP candidate |
@@ -481,14 +504,15 @@ Notes:
 After exporting corrected YOLO data from Label Studio:
 
 ```bash
-python3 promote_to_trainset.py --staging <label-studio-YOLO-export-dir> \
+# Run this command at ~/Work/spacenorm_obj_detection/
+python3 scripts/cctv/dataset_builder/promote_to_trainset.py --staging <label-studio-YOLO-export-dir> \
     --images data/cctv_train_data_mining/reviewing
 ```
 
 Label Studio's YOLO export contains `labels/` + `classes.txt` but an **empty
 `images/`** when tasks are served from Local Storage (it never stored the image
 files). So pass **`--images`** pointing at the reviewing tree — promote pairs each
-exported label with the original JPEG **by filename** (the export keeps the
+exported label with the original PNG **by filename** (the export keeps the
 descriptive basenames). If the export *does* include images, `--images` is optional.
 
 Creates the next `data/cctv_train_data/setNNNN/` (flat jpg+txt) — that's all it

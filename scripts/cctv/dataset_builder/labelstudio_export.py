@@ -14,7 +14,7 @@ itself: Label Studio refuses to register a Local Storage whose path equals the
 document root, and ``staging_dir`` must be registrable so that one storage entry
 covers every NVR beneath it. Task image URLs are therefore
 ``/data/local-files/?d=<path relative to that PARENT>`` — e.g.
-``?d=reviewing/<nvr>/ch00/morning/<frame>.jpg``. ``build_dataset._ls_document_root``
+``?d=reviewing/<nvr>/ch00/morning/<frame>.png``. ``build_dataset._ls_document_root``
 computes this and bakes it into the generated ``run_labelstudio.sh``; setting the
 root to ``staging_dir`` instead is the most common cause of the "issue loading URL
 from $image" 404 (see README "Troubleshooting").
@@ -38,7 +38,7 @@ Label config to use in the LS project (rectangle labels):
 import json
 from urllib.parse import quote
 
-from flicker_miner import TRAINSET_NAMES
+from flicker_miner import TRAINSET_NAMES, frame_categories
 
 # The project's labeling config (person + 6 animals + the two review-only suspect
 # labels). Paste this into a new LS project's "Labeling Setup → Custom template",
@@ -62,11 +62,24 @@ def write_label_config(out_path):
         f.write(LABEL_CONFIG)
 
 
-def _rect(box, w, h, label, rid, tid=None):
+def _rect(box, w, h, label, rid, tid=None, reason=None, conf=None):
     """One Label Studio rectanglelabels result (coords in PERCENT of image).
-    ``tid`` (the track id this box belongs to, within this clip) rides as
-    region ``meta`` — visible to the reviewer when the region is selected,
-    without needing its own Label config entry."""
+    ``tid`` (the track id this box belongs to, within this clip) and
+    ``reason`` (this box's own category tags, e.g. ``["Weak_FN",
+    "Anchor_start"]``) ride as region ``meta``, visible to the reviewer when
+    the region is selected, without needing their own Label config entry.
+    LS renders ``meta.text`` list items concatenated with no separator, so
+    both (and ``conf``, below) are joined into a single pre-formatted string
+    rather than kept as separate list entries.
+
+    ``conf`` is the detector's own confidence for this box, or ``None`` for
+    an interpolated box (no real detection exists at that step to have a
+    confidence). When present it is also set as the region's ``score`` —
+    Label Studio's native per-region confidence field, which drives
+    sorting/coloring in the Regions pane — in addition to ``meta.text``,
+    since ``score`` support in the reviewer's LS version isn't guaranteed but
+    ``meta.text`` already is (it is how ``tid``/``reason`` reach the
+    reviewer today)."""
     x1, y1, x2, y2 = box
     result = {
         "id": rid,
@@ -85,8 +98,17 @@ def _rect(box, w, h, label, rid, tid=None):
             "rectanglelabels": [label],
         },
     }
+    if conf is not None:
+        result["score"] = conf
+    parts = []
     if tid is not None:
-        result["meta"] = {"text": [f"track {tid}"]}
+        parts.append(f"track {tid}")
+    if reason:
+        parts.append(", ".join(reason))
+    if conf is not None:
+        parts.append(f"conf {conf:.2f}")
+    if parts:
+        result["meta"] = {"text": [", ".join(parts)]}
     return result
 
 
@@ -110,19 +132,22 @@ def build_task(record, image_rel_path):
     w, h = record["width"], record["height"]
     results = []
     n = 0
-    for (box, _src, tid) in record["persons"]:
-        results.append(_rect(box, w, h, "person", f"r{n}", tid)); n += 1
-    for (box, cls) in record["animal_boxes"]:
-        results.append(_rect(box, w, h, TRAINSET_NAMES[cls], f"r{n}")); n += 1
-    for (box, kind, tid) in record["suspect"]:
+    for (box, _src, tid, cats, conf) in record["persons"]:
+        results.append(_rect(box, w, h, "person", f"r{n}", tid, cats, conf)); n += 1
+    for (box, cls, conf) in record["animal_boxes"]:
+        results.append(_rect(box, w, h, TRAINSET_NAMES[cls], f"r{n}", conf=conf)); n += 1
+    for (box, kind, tid, conf) in record["suspect"]:
         label = "SUSPECT_STATIC_FP" if kind == "static" else "SUSPECT_FP"
-        results.append(_rect(box, w, h, label, f"r{n}", tid)); n += 1
+        results.append(_rect(box, w, h, label, f"r{n}", tid, conf=conf)); n += 1
 
     # All of these live in `data` so they are filterable/sortable Data Manager
     # columns. There is no single "reason" — a frame belongs to any number of
     # categories at once, so filter on the counts directly, e.g.
     # n_anchor_start>0 OR n_anchor_end>0 (every frame with an interpolation
-    # anchor), or clip_id=<...> to review one clip at a time.
+    # anchor), or clip_id=<...> to review one clip at a time. `n_easy` is the
+    # one exception: it is 1 only when every other n_* count above is 0
+    # (flicker_miner.frame_categories's fallback), so `n_easy=0` alone excludes
+    # every easy frame in one filter instead of ANDing all the other counts to 0.
     return {
         "data": {
             "image": "/data/local-files/?d=" + quote(image_rel_path),
@@ -140,6 +165,8 @@ def build_task(record, image_rel_path):
             "n_anchor_end": record["n_anchor_end"],
             "n_sfp": record["n_sfp"],
             "n_fp": record["n_fp"],
+            "n_track_context": record["n_context"],
+            "n_easy": int(frame_categories(record) == {"easy"}),
             "track_ids": record.get("track_ids", []),
         },
         "predictions": [{
