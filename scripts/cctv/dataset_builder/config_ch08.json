@@ -1,15 +1,15 @@
 {
-  "host": "nvr.example.com",
+  "host": "cheilacc-ansung.spacenorm.com",
   "username": "admin",
-  "password": "CHANGEME",
+  "password": "Qwert12#",
   "verify_ssl": false,
   "rtsp_transport": "tcp",
   "rtsp_port": null,
 
-  "channels": "all",
+  "channels": [8],
 
   "model": "docker_build/yolo11x_set01-0148.pt",
-  "img_size": 1280,
+  "img_size": 640,
   "conf_thresh": 0.6,
 
   "track_conf": 0.25,
@@ -41,13 +41,11 @@
   "easy_every_n": 5,
 
   "clip_duration_sec": 60,
-  "clip_download_timeout_sec": 60,
   "clip_end_margin_sec": 120,
-  "lookback_hours": 24,
-  "window_start": null,
-  "window_end": null,
-  "clip_interval_min": 30,
   "staging_dir": "data/cctv_train_data_mining/reviewing",
-  "keep_clips": false,
-  "annotate_clips": true
+  "keep_clips": true,
+
+  "window_start": "2026-07-14T15:04:00",
+  "window_end":   "2026-07-14T15:10:00",
+  "clip_interval_min": 1
 }

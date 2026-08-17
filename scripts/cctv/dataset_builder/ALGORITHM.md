@@ -235,15 +235,15 @@ person simultaneously resolves both "was this weak detection a real miss" and
 clip.mp4
   └─ pass 1 (every track_vid_stride-th frame):
        run deployed model @ track_conf  ─►  per-frame person/animal detections (+ tiny gray crop per person for static FP mining using ZNCC)
-       └─ cache this exact frame, losslessly, to a per-clip temp dir keyed by raw_idx
+       └─ hold this exact frame in memory, in a per-clip dict keyed by raw_idx
   ├─ greedy-IoU tracker, once, after pass 1 finishes: tracks of a person across the whole clip (gap-bridged ≤ max_gap_frames)
   ├─ per track, precomputed once: find anchor steps (§4); test for static-FP (§6)
   ├─ per frame: tally its independent category counts (§5) using the two views + track topology
   │             (a gap step's box is interpolated on demand here, §3b, not precomputed)
   ├─ select frames (independent per-category caps, §5)
-  └─ read the selected frames back from the pass-1 cache; delete the whole cache
+  └─ read the selected frames back from the pass-1 in-memory cache (GC'd on return)
 
-mine_clip() returns here; the rest happens in build_dataset.py's sweep(), per selected frame:
+mine_clip() returns here; the rest happens in mine_dataset.py's sweep(), per selected frame:
   └─ build pre-labels (.png + YOLO .txt) + a Label Studio task
 ```
 
@@ -259,13 +259,18 @@ is enough to shift a borderline detection's confidence by a few points — this
 is exactly what going back and running the deployed model on a saved, re-decoded
 JPEG frame from an earlier version of this pipeline showed (a task JSON confidence
 of 0.82 read back as 0.84 offline). So pass 1 decodes each processed step's frame
-once and writes it, losslessly (PNG), to a per-clip temp directory; selection
-then reads the wanted files straight back off disk with no further decode, and
-the directory (everything not selected, along with the now-copied-out selected
-files) is deleted before `mine_clip` returns. Only that per-frame metadata (boxes
-+ a 32×64 gray crop per detection) is held in memory for the *whole* clip, same
-as before — the full frames themselves live on disk for one clip's processing
-and never accumulate across a 24 h sweep.
+once and holds it, as the bare ndarray `_detect` scored, in an in-memory dict
+keyed by raw_idx — no re-encode of any kind, not even a lossless one, so this
+is a *stronger* bit-exactness guarantee than staging through a file would be.
+This is safe to hold in RAM because `mine_clip` is never called concurrently:
+`sweep()` processes exactly one clip at a time, so at most ~5.6 GB (one 60 s
+clip's worth of 1920x1080 frames at track_vid_stride=2) is ever resident, only
+for the duration of one `mine_clip()` call. The dict is discarded by ordinary
+garbage collection when `mine_clip` returns — including if it returns via an
+uncaught exception, which a prior disk-cache design would have leaked. Only
+the selected frames' arrays outlive the call, referenced from the records
+`mine_clip` returns; nothing here ever touches disk or accumulates across a
+24 h sweep.
 
 **Terminology: what is a "track"?** A **track** is the tracker's
 *hypothesis* that a sequence of detections across different processed steps are for
@@ -1216,7 +1221,7 @@ is *both* a `weak` miss and the gap-closing anchor of a different track would
 show only one of the two), whereas filtering directly on `n_anchor_start > 0 OR
 n_anchor_end > 0` always catches every anchor frame reliably. The counts are
 the authoritative signal, and a collapsed label would only be a lossy summary of
-them. Staging is likewise flat per channel/bucket (`build_dataset.py`), not
+them. Staging is likewise flat per channel/bucket (`mine_dataset.py`), not
 per-category folders, since which categories a frame touches is filterable data
 in `manifest.csv` and the task, not a directory structure.
 
@@ -1407,7 +1412,7 @@ their category (`SFP`/`FP`) is already visible directly as the rendered
 `SUSPECT_STATIC_FP`/`SUSPECT_FP` label.
 
 `clip_id` (`f"{nvr}_ch{channel:02d}_{stamp}"`) is the complementary,
-*cross-frame* identifier, assigned in `build_dataset.py` once a clip's records
+*cross-frame* identifier, assigned in `mine_dataset.py` once a clip's records
 reach `_save_record` (`mine_clip` itself has no notion of NVR/channel/timestamp).
 Every frame from the same clip shares one `clip_id`, in `manifest.csv` and the
 task `data`. Filtering the Data Manager to one `clip_id` (or a chosen few) lets a

@@ -65,7 +65,7 @@ import json
 import logging
 import os
 
-logger = logging.getLogger("build_dataset.persistence")
+logger = logging.getLogger("mine_dataset.persistence")
 
 STATE_VERSION = 2
 

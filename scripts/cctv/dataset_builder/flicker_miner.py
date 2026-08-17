@@ -18,23 +18,23 @@ tracking, no second model):
     drifts. Flagged for review as SUSPECT_STATIC_FP — a human confirms
     mannequin (delete -> hard negative) vs a real person who stood still.
 
-Pass 1 collects detections + tiny illumination-normalisable crops (memory-light)
-AND caches every processed step's full frame, losslessly, to a per-clip temp
-directory keyed by raw_idx. Selection then reads back only the wanted frames
-from that cache — there is no second video decode — and the whole cache is
-deleted immediately after, win or lose. See ALGORITHM.md 3 for why the cached
-copy must be lossless and why it is staged to disk rather than held in RAM.
+Pass 1 collects detections + tiny illumination-normalisable crops AND holds
+every processed step's full frame, as the exact in-memory ndarray _detect just
+scored, in a per-clip dict keyed by raw_idx. Selection then reads back only
+the wanted frames from that dict — there is no second video decode and no
+re-encode of any kind — and the dict (one clip's worth, never more than one
+clip in flight at a time) is dropped by ordinary Python garbage collection when
+mine_clip returns, on every exit path including an exception. See ALGORITHM.md
+3 for why the cache must be the exact scored array rather than a re-decode or
+a re-encoded copy.
 """
 import logging
-import os
-import shutil
-import tempfile
 from collections import Counter
 
 import cv2
 import numpy as np
 
-logger = logging.getLogger("build_dataset.flicker")
+logger = logging.getLogger("mine_dataset.flicker")
 
 TRAINSET_NAMES = ["person", "bird", "cat", "dog", "horse", "sheep", "cow"]
 PERSON_ID = 0
@@ -454,31 +454,29 @@ def mine_clip(clip_path, model, cfg, persist=None, update_persist=False):
     There is no single per-frame "reason": a frame independently belongs to any
     number of the six categories at once (each driven by its own n_* count).
     ``frame_categories()`` below derives that set on demand — for selection here,
-    for staging/logging in build_dataset.py, or for ad-hoc inspection — rather
+    for staging/logging in mine_dataset.py, or for ad-hoc inspection — rather
     than collapsing it into one precedence-ordered label.
     """
     stride = max(1, int(cfg.track_vid_stride))
     prod_conf = cfg.conf_thresh
     max_gap = int(cfg.max_gap_frames)
 
-    # ---- Pass 1: detections + crops + track metadata + a lossless per-step
-    # frame cache. The cache holds the EXACT array _detect just scored, written
-    # to a per-clip temp dir keyed by raw_idx: a frame later selected for review
-    # (and, eventually, retraining) must be byte-identical to what produced its
-    # recorded confidence, which neither a second video decode nor a lossy
-    # re-encode (e.g. JPEG) can guarantee — see ALGORITHM.md 3. Whatever is not
-    # selected is deleted with the rest of this directory before mine_clip
-    # returns, so nothing here is ever visible outside one clip's processing.
+    # ---- Pass 1: detections + crops + track metadata + an in-memory per-step
+    # frame cache (frame_cache, raw_idx -> ndarray). It holds the EXACT array
+    # _detect just scored: a frame later selected for review (and, eventually,
+    # retraining) must be byte-identical to what produced its recorded
+    # confidence, which neither a second video decode nor ANY re-encode
+    # (lossy JPEG or even lossless PNG) can guarantee — see ALGORITHM.md 3.
+    # mine_clip is never called concurrently (sweep() is strictly sequential),
+    # so at most one clip's frames (~5.6 GB for a 60 s clip at 1920x1080) are
+    # ever resident; frame_cache is dropped by ordinary GC when mine_clip
+    # returns, on every exit path including an exception — no explicit
+    # cleanup is needed or present.
     cap = cv2.VideoCapture(clip_path)
     if not cap.isOpened():
         logger.warning(f"      could not open clip {clip_path}")
         return [], []
-    tmp_root = os.path.join(cfg.staging_dir, ".tmp_pass1")
-    os.makedirs(tmp_root, exist_ok=True)
-    tmp_dir = tempfile.mkdtemp(dir=tmp_root)
-
-    def _cache_path(idx):
-        return os.path.join(tmp_dir, f"{idx:06d}.png")
+    frame_cache = {}   # raw_idx -> BGR ndarray for every pass-1 step of THIS clip only
 
     step_meta = []
     raw_idx = -1
@@ -496,13 +494,9 @@ def mine_clip(clip_path, model, cfg, persist=None, update_persist=False):
         persons, animals = _detect(model, img, cfg.img_size, cfg.track_conf)
         pdets = [{"box": box, "conf": c, "crop": _crop(gray, box)} for (box, c) in persons]
         step_meta.append({"raw": raw_idx, "W": W, "H": H, "persons": pdets, "animals": animals})
-        # Compression level, not quality: PNG is always lossless, level only
-        # trades write speed for size. Kept low since most of these frames are
-        # deleted unread a moment later.
-        cv2.imwrite(_cache_path(raw_idx), img, [cv2.IMWRITE_PNG_COMPRESSION, 1])
+        frame_cache[raw_idx] = img
     cap.release()
     if not step_meta:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
         return [], []
 
     tracks = _build_tracks([m["persons"] for m in step_meta], cfg.iou_track, max_gap)
@@ -687,25 +681,21 @@ def mine_clip(clip_path, model, cfg, persist=None, update_persist=False):
     # ---- Select: independent per-category quotas (see _select_frames) ----
     selected, n = _select_frames(frames, cfg)
     if not selected:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
         return [], frames
 
-    # ---- Read the selected frames back from the pass-1 cache (no re-decode:
-    # this is the exact array _detect scored for each of these steps) ----
+    # ---- Read the selected frames back from the pass-1 in-memory cache (no
+    # re-decode, no re-encode: this is the exact array _detect scored for
+    # each of these steps) ----
     out = []
     for fr in selected:
-        img = cv2.imread(_cache_path(fr["raw_idx"]))
+        img = frame_cache.get(fr["raw_idx"])
         if img is not None:
             fr["image"] = img
             out.append(fr)
     if len(out) < len(selected):
-        # A frame missing from its own clip's just-written cache would be a
-        # cv2.imwrite failure in pass 1 (disk full, permissions) rather than
-        # anything about the video itself — worth surfacing loudly either way,
-        # since it silently loses a mined candidate.
         logger.warning(f"      {len(selected) - len(out)}/{len(selected)} selected "
-                       f"frame(s) missing from the pass-1 cache, dropped")
-    shutil.rmtree(tmp_dir, ignore_errors=True)
+                       f"frame(s) missing from the pass-1 frame cache — this should "
+                       f"be structurally impossible; dropped")
 
     logger.info(f"      mined: {n['Intp_FN']} intpFN / {n['Weak_FN']} weakFN / "
                 f"{n['Anchor_start']}+{n['Anchor_end']} anchorS/E / "

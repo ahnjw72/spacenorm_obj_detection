@@ -14,7 +14,7 @@ itself: Label Studio refuses to register a Local Storage whose path equals the
 document root, and ``staging_dir`` must be registrable so that one storage entry
 covers every NVR beneath it. Task image URLs are therefore
 ``/data/local-files/?d=<path relative to that PARENT>`` — e.g.
-``?d=reviewing/<nvr>/ch00/morning/<frame>.png``. ``build_dataset._ls_document_root``
+``?d=reviewing/<nvr>/ch00/morning/<frame>.png``. ``mine_dataset._ls_document_root``
 computes this and bakes it into the generated ``run_labelstudio.sh``; setting the
 root to ``staging_dir`` instead is the most common cause of the "issue loading URL
 from $image" 404 (see README "Troubleshooting").

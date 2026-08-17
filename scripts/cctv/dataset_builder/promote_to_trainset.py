@@ -7,7 +7,7 @@ hand-reviewed staging folder. NEVER on raw, unreviewed pre-labels. It:
   1. Pairs each exported label .txt with its image BY FILENAME. Label Studio omits
      image files for Local-Storage tasks (the export's images/ is empty), so pass
      --images <reviewing dir> to pair the corrected labels with the original PNGs
-     (build_dataset stages losslessly, ALGORITHM.md 3 — never JPEGs).
+     (mine_dataset stages losslessly, ALGORITHM.md 3 — never JPEGs).
   2. Skips any frame whose basename is already present in an existing setNNNN, so
      two Label Studio exports with overlapping task ranges cannot copy the same
      frame into two sets (which would double its training weight and let a stale
@@ -20,19 +20,41 @@ hand-reviewed staging folder. NEVER on raw, unreviewed pre-labels. It:
      with a loud warning — never copied through, since a corrupt line in a YOLO
      label file either crashes the trainer or silently misreads the file.
 
-It ONLY creates the setNNNN folder. It does NOT touch data/cctv.yaml or any
+It ONLY creates the setNNNN folder(s). It does NOT touch data/cctv.yaml or any
 train/val list — regenerate those with make_train_test_single_multi.ipynb after
 promotion (that notebook owns the train/test split).
+
+--staging accepts one or more paths, each either a hand-reviewed directory or
+a raw Label Studio YOLO-export .zip (extracted to a temp dir automatically).
+--ls-project accepts one or more Label Studio project ids (or pasted project
+URLs) and fetches that project's YOLO export directly over the API instead —
+no manual "Export -> download zip -> copy it here" round trip. Either kind of
+item becomes its own new setNNNN, and --staging/--ls-project items can be
+mixed in one run.
 
     python3 promote_to_trainset.py --staging <yolo-export-dir> \\
         --images data/cctv_train_data_mining/reviewing
     python3 promote_to_trainset.py --staging <dir> --set-name set0200
+    python3 promote_to_trainset.py --staging a.zip b.zip \\
+        --images data/cctv_train_data_mining/reviewing
+    LABEL_STUDIO_API_TOKEN=... python3 promote_to_trainset.py --ls-project 42 \\
+        --images data/cctv_train_data_mining/reviewing
 """
 import argparse
+import io
 import os
 import re
 import shutil
+import sys
+import tempfile
+import zipfile
 from pathlib import Path
+
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+
+from ls_api import add_auth_args, ls_client_from_args  # noqa: E402
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _TRAINSET_DIR = _REPO_ROOT / "data" / "cctv_train_data"
@@ -114,7 +136,7 @@ def next_set_name():
 def already_promoted():
     """Map image basename -> the setNNNN that already contains it.
 
-    Promotion is keyed on the image basename, which build_dataset makes unique and
+    Promotion is keyed on the image basename, which mine_dataset makes unique and
     deterministic (nvr_ch_bucket_stamp_rawidx). Two Label Studio exports whose task
     ranges overlap — easy to produce, since one LS project accumulates every sweep
     and "Export" covers the whole project unless filtered — would otherwise copy the
@@ -138,7 +160,7 @@ def load_class_remap(staging):
 
     Returns (remap|None, names|None, path|None). None when no classes.txt exists —
     then labels are assumed to already use trainset ids (a hand-reviewed staging
-    folder written by build_dataset)."""
+    folder written by mine_dataset)."""
     for root, _dirs, files in os.walk(staging):
         if "classes.txt" in files:
             path = os.path.join(root, "classes.txt")
@@ -207,40 +229,70 @@ def copy_label_filtered(src_txt, dst_txt, remap):
     return dropped, malformed
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--staging", required=True,
-                    help="Label Studio YOLO export dir (or a hand-reviewed folder) to promote")
-    ap.add_argument("--images", help="Directory tree with the original PNGs (the reviewing "
-                    "dir). Required when the LS export has an empty images/ (Local-Storage "
-                    "tasks); labels are paired to images by filename.")
-    ap.add_argument("--set-name", help="Target set folder name (default: next setNNNN)")
-    ap.add_argument("--dry-run", action="store_true", help="Report only; copy nothing")
-    ap.add_argument("--allow-duplicates", action="store_true",
-                    help="Promote frames whose basename already exists in an earlier "
-                         "setNNNN (default: skip them, so overlapping Label Studio "
-                         "exports cannot double-weight the same frame)")
-    args = ap.parse_args()
+def _is_zip(path):
+    """True for a path that names an actual zip file (not just a .zip extension
+    on something else)."""
+    return os.path.isfile(path) and zipfile.is_zipfile(path)
 
-    staging = _resolve(args.staging)
-    if not os.path.isdir(staging):
-        raise SystemExit(f"export/staging dir not found: {args.staging}")
-    images_root = _resolve(args.images) if args.images else None
-    if images_root and not os.path.isdir(images_root):
-        raise SystemExit(f"--images dir not found: {args.images}")
 
+def parse_project_id(spec):
+    """Accept either a bare project id ('42') or a URL/path copy-pasted from
+    the browser (e.g. 'http://host:8080/projects/42/data') -- so --ls-project
+    works with whatever's on the clipboard, not just the bare number."""
+    m = re.search(r"/projects/(\d+)", spec)
+    if m:
+        return int(m.group(1))
+    try:
+        return int(spec)
+    except ValueError:
+        raise SystemExit(f"--ls-project: {spec!r} is not a project id or a "
+                         "Label Studio project URL")
+
+
+def fetch_yolo_export(client, project_id):
+    """Fetch a project's YOLO export as zip bytes via the API -- the same
+    format and content 'Export -> YOLO' produces in the UI (labels/ +
+    classes.txt; images/ is empty for Local-Storage-served tasks, same as a
+    manual export, since LS never stored the image bytes -- --images is
+    still required). Only ANNOTATED tasks are included (download_all_tasks
+    defaults to false), matching the "never on raw, unreviewed pre-labels"
+    rule this script exists to enforce."""
+    resp = client.request("GET", f"/api/projects/{project_id}/export",
+                          params={"exportType": "YOLO"}, timeout=300)
+    if not resp.ok:
+        # A wrong project id 404s as an HTML error page, not JSON -- show that
+        # plainly instead of dumping a page of markup.
+        detail = (resp.text[:300] if "json" in resp.headers.get("content-type", "")
+                 else "(non-JSON error page; likely a wrong --ls-project id or --url)")
+        raise SystemExit(f"error: export failed for LS project {project_id}: "
+                         f"{resp.status_code} {detail}")
+    return resp.content
+
+
+def promote_one(staging, images_root, set_name, allow_duplicates, dry_run, label):
+    """Promote a single staging dir into one new setNNNN.
+
+    `staging` is an already-resolved directory (for a zip staging item, the
+    directory it was extracted into). `label` is the original --staging
+    argument as the user typed it, used only in messages so batch output says
+    which item a message is about.
+
+    Returns True if a set was written (or would be, under --dry-run), False
+    if this item had nothing new to promote — the caller decides whether that
+    aborts the batch or just gets skipped."""
     pairs, n_labels = find_pairs(staging, images_root)
     if not pairs:
         if n_labels and not images_root:
-            raise SystemExit(
-                f"found {n_labels} label file(s) but no matching images under {staging}.\n"
-                "Label Studio omits image files for Local-Storage tasks, so the export's "
-                "images/ is empty.\nRe-run with --images pointing at the reviewing tree, e.g.:\n"
-                "  python3 promote_to_trainset.py --staging {export} "
-                "--images data/cctv_train_data_mining/reviewing".format(export=args.staging))
-        raise SystemExit(f"no label/image pairs found under {staging}"
-                         + (f" (+ images from {images_root})" if images_root else ""))
+            print(f"  [skip] {label}: found {n_labels} label file(s) but no matching "
+                  f"images under {staging}.\n"
+                  "  Label Studio omits image files for Local-Storage tasks, so the export's "
+                  "images/ is empty.\n  Re-run with --images pointing at the reviewing tree, "
+                  "e.g.:\n    python3 promote_to_trainset.py --staging {export} "
+                  "--images data/cctv_train_data_mining/reviewing".format(export=label))
+        else:
+            print(f"  [skip] {label}: no label/image pairs found under {staging}"
+                  + (f" (+ images from {images_root})" if images_root else ""))
+        return False
 
     # Determine how exported class ids map to the trainset taxonomy.
     remap, names, classes_path = load_class_remap(staging)
@@ -264,26 +316,27 @@ def main():
             print(f"      {os.path.basename(j)} -> {promoted[os.path.basename(j)]}")
         if len(dups) > 5:
             print(f"      ... and {len(dups) - 5} more")
-        if args.allow_duplicates:
+        if allow_duplicates:
             print("  [dup] --allow-duplicates given: copying them anyway")
         else:
             pairs = [(j, t) for (j, t) in pairs if os.path.basename(j) not in promoted]
             print(f"  [dup] skipping them ({len(pairs)} pair(s) left); "
                   f"--allow-duplicates to override")
             if not pairs:
-                raise SystemExit("every pair in this export was already promoted; "
-                                 "nothing new to write")
+                print(f"  [skip] {label}: every pair was already promoted; "
+                      "nothing new to write")
+                return False
 
-    set_name = args.set_name or next_set_name()
+    set_name = set_name or next_set_name()
     set_dir = _TRAINSET_DIR / set_name
     # pos/neg measured AFTER the remap/drop: a frame whose only labels were SUSPECT_*
     # becomes an (empty) negative, so count survivors, not source file size.
     pos = sum(1 for _j, t in pairs if _remap_lines(t, remap)[0])
     print(f"Promoting {len(pairs)} pairs ({pos} pos / {len(pairs) - pos} neg after remap) "
           f"-> {set_dir}")
-    if args.dry_run:
+    if dry_run:
         print("(dry-run) nothing written")
-        return
+        return True
 
     set_dir.mkdir(parents=True, exist_ok=False)
 
@@ -313,10 +366,101 @@ def main():
             print(f"      {fname}: {ln!r}")
         if len(malformed_total) > 5:
             print(f"      ... and {len(malformed_total) - 5} more")
-    print("\nNext steps:")
-    print(f"  - Regenerate the train/val lists (train_01_to_NNNN.txt / test_01_to_NNNN.txt) via "
-          f"make_train_test_single_multi.ipynb so data/cctv.yaml picks up {set_name}.")
-    print(f"  - Add a line for {set_name} to data/cctv_train_data/.NOTE.")
+    return True
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--staging", nargs="+", default=[],
+                    help="One or more Label Studio YOLO export .zip files and/or "
+                         "hand-reviewed folders to promote. Each item becomes its own "
+                         "new setNNNN.")
+    ap.add_argument("--ls-project", nargs="+", default=[], metavar="PROJECT",
+                    help="One or more Label Studio project ids (or pasted project URLs) "
+                         "to fetch a YOLO export from directly over the API, instead of "
+                         "exporting from the UI and passing a downloaded --staging zip. "
+                         "Only annotated (reviewed) tasks are included, same as the UI's "
+                         "Export button. Each project becomes its own new setNNNN, same "
+                         "as a --staging item. Requires --url/--token (or "
+                         "$LABEL_STUDIO_URL/$LABEL_STUDIO_API_TOKEN).")
+    ap.add_argument("--images", help="Directory tree with the original PNGs (the reviewing "
+                    "dir). Required when the LS export has an empty images/ (Local-Storage "
+                    "tasks); labels are paired to images by filename. Shared across all "
+                    "--staging/--ls-project items.")
+    ap.add_argument("--set-name", help="Target set folder name (default: next setNNNN). "
+                    "Only valid with a single --staging/--ls-project item total.")
+    ap.add_argument("--dry-run", action="store_true", help="Report only; copy nothing")
+    ap.add_argument("--allow-duplicates", action="store_true",
+                    help="Promote frames whose basename already exists in an earlier "
+                         "setNNNN (default: skip them, so overlapping Label Studio "
+                         "exports cannot double-weight the same frame)")
+    add_auth_args(ap)
+    args = ap.parse_args()
+
+    if not args.staging and not args.ls_project:
+        raise SystemExit("error: pass at least one --staging item or --ls-project id")
+
+    project_ids = [parse_project_id(p) for p in args.ls_project]
+    if args.set_name and (len(args.staging) + len(project_ids)) > 1:
+        raise SystemExit("--set-name can only be used with a single --staging/--ls-project "
+                          "item total (each item promotes into its own set; use the "
+                          "default auto-numbered setNNNN when batching multiple).")
+
+    images_root = _resolve(args.images) if args.images else None
+    if images_root and not os.path.isdir(images_root):
+        raise SystemExit(f"--images dir not found: {args.images}")
+
+    resolved = [_resolve(s) for s in args.staging]
+    missing = [orig for orig, res in zip(args.staging, resolved) if not os.path.exists(res)]
+    if missing:
+        raise SystemExit("--staging path(s) not found: " + ", ".join(missing))
+
+    client = ls_client_from_args(args) if project_ids else None
+
+    n = len(resolved) + len(project_ids)
+    written, skipped = 0, 0
+    i = 0
+    for label, path in zip(args.staging, resolved):
+        i += 1
+        print(f"\n=== [{i}/{n}] {label} ===")
+        if _is_zip(path):
+            with tempfile.TemporaryDirectory(prefix="ls_export_") as tmpdir:
+                with zipfile.ZipFile(path) as zf:
+                    zf.extractall(tmpdir)
+                ok = promote_one(tmpdir, images_root, args.set_name, args.allow_duplicates,
+                                  args.dry_run, label)
+        elif os.path.isdir(path):
+            ok = promote_one(path, images_root, args.set_name, args.allow_duplicates,
+                              args.dry_run, label)
+        else:
+            print(f"  [skip] {label}: not a directory or a zip file")
+            ok = False
+        written += ok
+        skipped += not ok
+
+    for spec, pid in zip(args.ls_project, project_ids):
+        i += 1
+        label = f"LS project {pid}" + (f" ({spec})" if spec != str(pid) else "")
+        print(f"\n=== [{i}/{n}] {label} ===")
+        content = fetch_yolo_export(client, pid)
+        with tempfile.TemporaryDirectory(prefix="ls_export_") as tmpdir:
+            with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                zf.extractall(tmpdir)
+            ok = promote_one(tmpdir, images_root, args.set_name, args.allow_duplicates,
+                              args.dry_run, label)
+        written += ok
+        skipped += not ok
+
+    print(f"\n{written} of {n} staging item(s) promoted"
+          + (f", {skipped} skipped" if skipped else "") + ".")
+    if written:
+        print("\nNext steps:")
+        print("  - Regenerate the train/val lists (train_01_to_NNNN.txt / test_01_to_NNNN.txt) "
+              "via make_train_test_single_multi.ipynb so data/cctv.yaml picks up the new set(s).")
+        print("  - Add a line for each new setNNNN to data/cctv_train_data/.NOTE.")
+    if skipped:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -1,3 +1,29 @@
+- [CCTV hard-example miner (SUNAPI → deployed model → Label Studio)](#cctv-hard-example-miner-sunapi--deployed-model--label-studio)
+  - [The idea](#the-idea)
+    - [Why SFP is not just "MOG2 again"](#why-sfp-is-not-just-mog2-again)
+    - [Cross-clip persistence (second static-FP signal)](#cross-clip-persistence-second-static-fp-signal)
+    - [Known limitations](#known-limitations)
+  - [Requirements](#requirements)
+  - [Layout](#layout)
+  - [Usage](#usage)
+    - [Crash safety and resume](#crash-safety-and-resume)
+    - [Time window a sweep covers](#time-window-a-sweep-covers)
+    - [Reviewing output](#reviewing-output)
+  - [Review in Label Studio → export YOLO](#review-in-label-studio--export-yolo)
+    - [0. Install (one-time)](#0-install-one-time)
+    - [1. Launch with local-file serving](#1-launch-with-local-file-serving)
+    - [2. Create the project (one-time)](#2-create-the-project-one-time)
+    - [3. Register the staged images as Local Storage (required, once)](#3-register-the-staged-images-as-local-storage-required-once)
+    - [4. Import a sweep's tasks](#4-import-a-sweeps-tasks)
+    - [Automating project setup: create\_ls\_project.py](#automating-project-setup-create_ls_projectpy)
+    - [5. Review](#5-review)
+    - [6. Export](#6-export)
+    - [Troubleshooting: "There was an issue loading URL from $image value"](#troubleshooting-there-was-an-issue-loading-url-from-image-value)
+  - [Config keys](#config-keys)
+  - [Promote reviewed data](#promote-reviewed-data)
+  - [Caveats](#caveats)
+
+
 # CCTV hard-example miner (SUNAPI → deployed model → Label Studio)
 
 Grows the training set in `data/cctv_train_data/` by mining the **deployed
@@ -156,11 +182,13 @@ clip), so it is compute-heavy — see the volume note under "Time window".
 
 ```
 scripts/cctv/dataset_builder/
-  build_dataset.py         orchestration: sample+download clips across a window, mine, write outputs
+  mine_dataset.py         orchestration: sample+download clips across a window, mine, write outputs
   flicker_miner.py         per-clip mining: detect + track + FN/SFP/FP classify + annotated-clip render
   persistence.py           per-camera cross-clip fixture map (static-FP signal)
   labelstudio_export.py    build the Label Studio import JSON (pre-labels preloaded)
-  promote_to_trainset.py   merge a reviewed/exported dir into data/cctv_train_data/setNNNN
+  ls_api.py                shared Label Studio API auth client (used by the two scripts below)
+  create_ls_project.py     create+populate a Label Studio project via its API (no manual XML paste)
+  promote_to_trainset.py   merge a reviewed/exported dir (or an LS project via --ls-project) into data/cctv_train_data/setNNNN
   config.example.json      copy to config.json and fill in
   ALGORITHM.md             detailed classification algorithm & rationale (reasons, anchors, SFP)
 ```
@@ -181,16 +209,20 @@ python3 ../SUNAPI/SunapiClipPy/sunapi_clip.py \
     --host "$NVR_HOST" --username admin --password "$NVR_PASSWORD" --list-channels
 
 # 2) quick test: one most-recent clip on one channel, write nothing
-python3 build_dataset.py --config config.json --once --channel 0 --dry-run
+python3 mine_dataset.py --config config.json --once --channel 0 --dry-run
 
 # 3) one most-recent clip on one channel (real)
-python3 build_dataset.py --config config.json --once --channel 0
+python3 mine_dataset.py --config config.json --once --channel 0
 
 # 4) full window (default past 24h) for one channel, then exit
-python3 build_dataset.py --config config.json --channel 0
+python3 mine_dataset.py --config config.json --channel 0
 
 # 5) full window for ALL channels, then exit (large — see note below)
-python3 build_dataset.py --config config.json
+python3 mine_dataset.py --config config.json
+
+# 6) pin an absolute historical window without editing config.json
+python3 mine_dataset.py --config config.json \
+    --window-start 2026-08-07T15:54:00 --window-end 2026-08-08T15:54:00
 ```
 
 Every invocation does **one pass then exits** — there is no built-in loop. For
@@ -236,7 +268,13 @@ below). By default the window is the **past 24 h** (`lookback_hours: 24`), endin
 `clip_end_margin_sec` before now,
 so a 24 h window at the 30 min default yields ~48 clips/channel and naturally
 spans all four time buckets (each clip is tagged by its own hour). Set **both**
-`window_start` and `window_end` (ISO) to pin a fixed historical range instead.
+`window_start` and `window_end` (ISO) in the config to pin a fixed historical
+range instead, or pass **`--window-start`/`--window-end`** on the command line
+to do the same without editing the config file. Each flag independently
+overrides the matching config key when given; the same both-or-neither rule
+still applies to the *result*, so e.g. passing just `--window-end` against a
+config that already sets `window_start` is fine, but passing just one flag
+against a config where neither key is set raises an error.
 
 Run modes (both do one pass, then exit):
 - **Default** (no `--once`): sample the whole window (past `lookback_hours`, or the absolute `window_start`/`window_end`), then exit. This is the "cover the past 24 h and finish" mode.
@@ -260,14 +298,13 @@ schedule the command externally (cron / systemd timer) — there is no internal 
 <staging_dir>/<nvr>/persistence/ch<NN>.json         cross-clip fixture map (persists across sweeps)
 <staging_dir>/<nvr>/manifest.csv   image, clip_id, channel, bucket, n_person, n_intpfn, n_weakfn, n_anchor_start, n_anchor_end, n_sfp, n_fp, n_animal, animals, track_ids
 <staging_dir>/.clips/              downloaded mp4s (removed unless keep_clips; with keep_clips also <clip>_annotated.mp4)
-<staging_dir>/.tmp_pass1/          transient per-clip lossless frame cache (flicker_miner.mine_clip); deleted per clip, purged at sweep start
 ```
 
-Images are PNG, not JPEG: each staged file is read back verbatim from `mine_clip`'s
-pass-1 frame cache, so it is byte-identical to the array the detector actually
-scored — a lossy re-encode would let the saved copy (the one Label Studio shows
-and, eventually, retraining trains on) silently drift from the confidence
-recorded in the task JSON. See `ALGORITHM.md` §3.
+Images are PNG, not JPEG: each staged file is written straight from `mine_clip`'s
+in-memory pass-1 frame cache, so it is byte-identical to the array the detector
+actually scored — a lossy re-encode would let the saved copy (the one Label
+Studio shows and, eventually, retraining trains on) silently drift from the
+confidence recorded in the task JSON. See `ALGORITHM.md` §3.
 
 A frame is **not** filed into a single category's folder — a frame commonly
 qualifies for more than one at once (e.g. an interpolated miss *and* an
@@ -314,6 +351,13 @@ label-studio
 
 It opens `http://localhost:8080`. On first use, create a local account
 (email + password, stored on this machine only).
+
+> **Shortcut:** steps 2–4 below (paste the labeling config, register Local
+> Storage, import tasks) can be done in one command with
+> `create_ls_project.py` instead — see "Automating project setup" after
+> step 4. The manual steps are kept here since they're the reference for
+> what that script does under the hood, and the fallback if you'd rather not
+> use an API token.
 
 ### 2. Create the project (one-time)
 
@@ -376,6 +420,44 @@ file; the Import dialog accepts multiple files at once. Import more tasks files 
 as sweeps accumulate. Re-importing the *same* file would create duplicate tasks, so
 if you resumed an interrupted sweep, import that channel's file once, after the sweep
 finishes — the file is extended in place, not appended to a new one.
+
+### Automating project setup: create_ls_project.py
+
+`scripts/cctv/dataset_builder/create_ls_project.py` does steps 2–4 in one
+command: it creates a **new** project with the labeling config already baked
+in, registers the input file(s)' `staging_dir` as that project's Local
+Storage (skip with `--no-storage`), and imports every task — aggregating
+several `tasks_*.json` files into one project if you pass more than one.
+
+```bash
+export LABEL_STUDIO_API_TOKEN=...   # Personal Access Token, from the LS UI's Account & Settings page
+
+# one channel's tasks -> a project named after the file
+python3 scripts/cctv/dataset_builder/create_ls_project.py \
+    data/cctv_train_data_mining/reviewing/<nvr>/labelstudio/tasks_<stamp>_ch00.json
+
+# several channels' tasks aggregated into one project (name required with >1 file)
+python3 scripts/cctv/dataset_builder/create_ls_project.py \
+    data/cctv_train_data_mining/reviewing/<nvr>/labelstudio/tasks_<stamp>_ch*.json \
+    --name "<nvr> sweep <stamp>"
+```
+
+Requires Label Studio already running with local-file serving enabled (step
+1) — this script only talks to its API, it doesn't start the server.
+
+**On the token:** Account & Settings hands you a long-lived *refresh* token,
+not something usable directly against ordinary endpoints. By default the
+script exchanges it once for a short-lived *access* token via
+`/api/token/refresh/` and sends that as `Authorization: Bearer <access>`,
+re-exchanging automatically if a call 401s mid-run (access tokens default to
+a 5-minute lifetime) — you don't need to do anything for this, just pass the
+token Account & Settings gave you. If your server has **legacy** tokens
+enabled instead (Label Studio 1.23 default: disabled — see
+"Troubleshooting" below), pass `--legacy-token` to send that token as-is,
+`Authorization: Token <token>`, with no exchange. Run `create_ls_project.py
+--help` for the rest of the flags (`--staging-dir` to override the inferred
+Local Storage path, `--label-config` for a non-default template, `--url` for
+a non-default host/port).
 
 ### 5. Review
 
@@ -514,6 +596,26 @@ Label Studio's YOLO export contains `labels/` + `classes.txt` but an **empty
 files). So pass **`--images`** pointing at the reviewing tree — promote pairs each
 exported label with the original PNG **by filename** (the export keeps the
 descriptive basenames). If the export *does* include images, `--images` is optional.
+
+**Skip the manual export entirely with `--ls-project`:** instead of clicking
+Export in the UI and pointing `--staging` at the downloaded zip, fetch the
+export directly over the API:
+
+```bash
+export LABEL_STUDIO_API_TOKEN=...   # Personal Access Token, from Account & Settings
+python3 scripts/cctv/dataset_builder/promote_to_trainset.py --ls-project 42 \
+    --images data/cctv_train_data_mining/reviewing
+```
+
+`--ls-project` takes one or more project ids (or pasted project URLs like
+`http://localhost:8080/projects/42/data` — whatever's on the clipboard) and
+can be mixed with `--staging` in the same run; each project, like each
+`--staging` item, becomes its own new `setNNNN`. It fetches only **annotated**
+tasks (same as the UI's Export button — unreviewed pre-labels are never
+included), so the "never on raw, unreviewed pre-labels" rule above still
+holds. Auth works the same as `create_ls_project.py` — see that script's
+section above for the Personal Access Token / `--legacy-token` note; `--url`/
+`--token`/`--legacy-token` are only required when `--ls-project` is used.
 
 Creates the next `data/cctv_train_data/setNNNN/` (flat jpg+txt) — that's all it
 writes; the train/val split is left to the notebook (below).

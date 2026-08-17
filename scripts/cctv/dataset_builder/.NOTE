@@ -1,0 +1,66 @@
+
+=====================================================================================
+본 폴더의 스크립트에 관한 상세 내용은 README.md 참조
+
+전형적인 Mining 및 Training Process는 다음과 같다.
+
+    SPCENORM_ROOT = "~/Work/spacenorm_obj_detection"
+    MINING_ROOT = "~/Work/spacenorm_obj_detection/scripts/cctv/dataset_builder"
+
+1. Mining할 NVR 주소, 시간 간격, 채널 등 파라미터 설정
+   $MINING_ROOT/config.json 편집 (config.example.json에 모든 파라미터 있음)
+
+2. Data mining
+   $ cd $MINING_ROOT
+   $ python3 mine_dataset.py --config config.json
+   --> data/cctv_train_data_mining/reviewing/<nvr>/labelstudio/ 아래에 tasks*.json 파일 생김.
+
+3. 로컬에 Label Studio 웹서버 실행 (이미 떠 있으면 생략)
+   $ $SPACENORM_ROOT/data/cctv_train_data_mining/reviewing/<nvr>/labelstudio/run_labelstudio.sh
+
+4. Label Studio에 mining 결과로 나온 task들로 구성된 프로젝트 등록 (--name 필수)
+   $ python3 $SPCENORM_ROOT/scripts/cctv/dataset_builder/create_ls_project.py \
+    $SPCENORM_ROOT/data/cctv_train_data_mining/reviewing/<nvr>/labelstudio/tasks_<stamp>_ch*.json \
+    --name "<nvr> sweep <stamp>"
+
+5. 로컬의 Label Studio 웹서버에 접속하여 review 및 Submit
+   (1) SFP, FP 리뷰 및 Submit (Submit 단축키를 Ctrl+S로 등록해 둠)
+   (2) INTP_FN 리뷰 및 Submit
+   (3) WEAK_FN 리뷰 및 Submit
+
+6. Label Studio의 Submit 결과를 로컬 학습데이터로 promote
+   $ export LABEL_STUDIO_API_TOKEN=...   # Personal Access Token, from Account & Settings (.bashrc 에 있음)
+   $ python3 $SPCENORM_ROOT/scripts/cctv/dataset_builder/promote_to_trainset.py --ls-project <project번호> \
+    --images $SPCENORM_ROOT/data/cctv_train_data_mining/reviewing
+   --> $SPCENORM_ROOT/data/cctv_train_data/setNNNN 생성
+
+7. 학습을 위한 파일 생성 
+   (1) $SPACENORM_ROOT/scripts/cctv/make_train_test/make_train_test.py 편집 후 실행
+     --> train_01_to_NNNN.txt, test_01_to_NNNN.txt를 $SPCENORM_ROOT/data/cctv_train_data/train_test_txts/ 로 복사
+   (2) $SPACENORM_ROOT/data/cctv.yaml 편집 후 AWS S3로 복사
+        $ aws s3 cp $SPACENORM_ROOT/data/cctv.yaml s3://spacenorm-cctv-ml-data/spacenorm_yolov7/data/
+   
+8. AWS S3 로 학습데이터 Sync (반드시 속도가 훨씬 빠른 s5cmd 사용)
+   $ s5cmd --numworkers 256 sync --exclude "*inspection*" --exclude "*__pycache__*" --exclude "*.py" --exclude "*.sh" "$SPACENORM_ROOT/data/cctv_train_data/*" s3://spacenorm-cctv-ml-data/spacenorm_yolov7/data/cctv_train_data/
+
+9. AWS EC2 Spot Instance로 yolo training 시작
+   $ cd ~/Work/yolov11_training_aws
+   
+   # in case of g5.12xlarge (defined as default in infra/variables.tf)
+   $ python3 launch_training.py key_name=yolov11-training
+
+   # in case of g5.xlarge
+   $ python3 launch_training.py key_name=yolov11-training instance_type=g5.xlarge 
+
+   NOTE1 : epochs, batch, imgsz 등은 모두 ~/Work/yolov11_training_aws/default.yaml 에서 정의
+   NOTE2 : key_name=yolov11-training 에 해당하는 ~/.ssh/yolov11-training.pem 이 있다고 가정.
+
+10. AWS CloudWatch 대시보드로 학습상황 모니터링 (epochs, mAP)
+
+11. epochs가 다 돌았거나 mAP가 포화되면 학습 종료
+
+12. AWS S3 checkpoints 에서 best.pt를 로컬로 복사
+   $ aws s3 cp s3://spacenorm-cctv-ml-data/yolo_training_aws/checkpoints/best.pt $SPACENORM_ROOT/docker_build/yolo_weights/yolo11x_set01-NNNN.pt
+   $ ln -sf $SPACENORM_ROOT/docker_build/yolo_weights/yolo11x_set01-NNNN.pt $SPACENORM_ROOT/docker_build/yolo11x_cctv.pt
+=====================================================================================
+   
