@@ -22,8 +22,8 @@ echo "[2] Copying model files..."
 echo "============================================"
 
 # Dereference the symlink so docker COPY gets the actual file, not a broken link.
-cp -L ./yolo_weights/yolo11x_set01-0148.pt .
-cp -L ./yolo_weights/yolo11x.pt .
+cp -L ./yolo_weights/yolo11x_set01-0150.pt ./yolo11x_cctv.pt
+cp -L ./yolo_weights/yolo11x.pt ./yolo11x_coco.pt
 
 echo "→ Model file copied (dereferenced)"
 
