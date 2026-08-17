@@ -1,0 +1,1692 @@
+{
+  "gt_paths": [
+    "data/cctv_train_data/set*"
+  ],
+  "resolved_dirs": [
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set01",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0100",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0101",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0102",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0103",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0104",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0105",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0106",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0107",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0108",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0109",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0110",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0111",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0112",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0113",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0114",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0115",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0116",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0117",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0118",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0119",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0120",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0121",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0122",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0123",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0124",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0125",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0126",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0127",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0128",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0129",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0130",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0131",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0132",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0133",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0134",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0135",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0136",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0137",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0138",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0139",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0140",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0141",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0142",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0143",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0144",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0145",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0146",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0147",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0148",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0149",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set0150",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set02",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set03",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set04",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set06",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set08",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set10",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set11",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set12",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set13",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set14",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set15",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set16",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set17",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set18",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set19",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set20",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set21",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set22",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set23",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set24",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set25",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set26",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set27",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set28",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set29",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set30",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set31",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set32",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set33",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set34",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set35",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set36",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set37",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set38",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set39",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set40",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set41",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set42",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set43",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set44",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set45",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set46",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set47",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set48",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set49",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set50",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set51",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set52",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set53",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set54",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set55",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set56",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set57",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set58",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set59",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set60",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set61",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set62",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set63",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set64",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set65",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set66",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set67",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set68",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set69",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set70",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set71",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set72",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set73",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set74",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set75",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set76",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set77",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set78",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set79",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set80",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set81",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set82",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set83",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set84",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set85",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set86",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set87",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set88",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set89",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set90",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set91",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set92",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set93",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set94",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set95",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set96",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set97",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set98",
+    "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set99"
+  ],
+  "model": "docker_build/yolo11x_set01-0148.pt",
+  "imgsz": 1280,
+  "num_images": 258424,
+  "num_images_found": 258790,
+  "num_images_skipped": 366,
+  "skipped_images": [
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0026.jpg",
+      "reason": "missing label file set05_0026.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0027.jpg",
+      "reason": "missing label file set05_0027.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0028.jpg",
+      "reason": "missing label file set05_0028.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0035.jpg",
+      "reason": "missing label file set05_0035.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0036.jpg",
+      "reason": "missing label file set05_0036.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0037.jpg",
+      "reason": "missing label file set05_0037.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0038.jpg",
+      "reason": "missing label file set05_0038.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0039.jpg",
+      "reason": "missing label file set05_0039.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0040.jpg",
+      "reason": "missing label file set05_0040.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0041.jpg",
+      "reason": "missing label file set05_0041.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0042.jpg",
+      "reason": "missing label file set05_0042.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0043.jpg",
+      "reason": "missing label file set05_0043.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0044.jpg",
+      "reason": "missing label file set05_0044.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0045.jpg",
+      "reason": "missing label file set05_0045.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0046.jpg",
+      "reason": "missing label file set05_0046.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0047.jpg",
+      "reason": "missing label file set05_0047.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0048.jpg",
+      "reason": "missing label file set05_0048.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0049.jpg",
+      "reason": "missing label file set05_0049.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0050.jpg",
+      "reason": "missing label file set05_0050.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0051.jpg",
+      "reason": "missing label file set05_0051.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0052.jpg",
+      "reason": "missing label file set05_0052.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0053.jpg",
+      "reason": "missing label file set05_0053.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0054.jpg",
+      "reason": "missing label file set05_0054.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0064.jpg",
+      "reason": "missing label file set05_0064.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0065.jpg",
+      "reason": "missing label file set05_0065.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0066.jpg",
+      "reason": "missing label file set05_0066.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0067.jpg",
+      "reason": "missing label file set05_0067.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0123.jpg",
+      "reason": "missing label file set05_0123.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0124.jpg",
+      "reason": "missing label file set05_0124.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0125.jpg",
+      "reason": "missing label file set05_0125.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0126.jpg",
+      "reason": "missing label file set05_0126.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0127.jpg",
+      "reason": "missing label file set05_0127.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0128.jpg",
+      "reason": "missing label file set05_0128.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0129.jpg",
+      "reason": "missing label file set05_0129.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0130.jpg",
+      "reason": "missing label file set05_0130.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0131.jpg",
+      "reason": "missing label file set05_0131.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0170.jpg",
+      "reason": "missing label file set05_0170.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0171.jpg",
+      "reason": "missing label file set05_0171.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0172.jpg",
+      "reason": "missing label file set05_0172.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0173.jpg",
+      "reason": "missing label file set05_0173.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0174.jpg",
+      "reason": "missing label file set05_0174.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0266.jpg",
+      "reason": "missing label file set05_0266.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0267.jpg",
+      "reason": "missing label file set05_0267.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_0268.jpg",
+      "reason": "missing label file set05_0268.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1220.jpg",
+      "reason": "missing label file set05_1220.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1221.jpg",
+      "reason": "missing label file set05_1221.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1222.jpg",
+      "reason": "missing label file set05_1222.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1223.jpg",
+      "reason": "missing label file set05_1223.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1224.jpg",
+      "reason": "missing label file set05_1224.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1225.jpg",
+      "reason": "missing label file set05_1225.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1226.jpg",
+      "reason": "missing label file set05_1226.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1239.jpg",
+      "reason": "missing label file set05_1239.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1240.jpg",
+      "reason": "missing label file set05_1240.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1282.jpg",
+      "reason": "missing label file set05_1282.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1283.jpg",
+      "reason": "missing label file set05_1283.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1284.jpg",
+      "reason": "missing label file set05_1284.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1285.jpg",
+      "reason": "missing label file set05_1285.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1286.jpg",
+      "reason": "missing label file set05_1286.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1287.jpg",
+      "reason": "missing label file set05_1287.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1288.jpg",
+      "reason": "missing label file set05_1288.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1289.jpg",
+      "reason": "missing label file set05_1289.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1290.jpg",
+      "reason": "missing label file set05_1290.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1291.jpg",
+      "reason": "missing label file set05_1291.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1292.jpg",
+      "reason": "missing label file set05_1292.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1293.jpg",
+      "reason": "missing label file set05_1293.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1294.jpg",
+      "reason": "missing label file set05_1294.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1295.jpg",
+      "reason": "missing label file set05_1295.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1296.jpg",
+      "reason": "missing label file set05_1296.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1297.jpg",
+      "reason": "missing label file set05_1297.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1298.jpg",
+      "reason": "missing label file set05_1298.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1299.jpg",
+      "reason": "missing label file set05_1299.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1300.jpg",
+      "reason": "missing label file set05_1300.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1301.jpg",
+      "reason": "missing label file set05_1301.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1302.jpg",
+      "reason": "missing label file set05_1302.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1303.jpg",
+      "reason": "missing label file set05_1303.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1304.jpg",
+      "reason": "missing label file set05_1304.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1305.jpg",
+      "reason": "missing label file set05_1305.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1306.jpg",
+      "reason": "missing label file set05_1306.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1307.jpg",
+      "reason": "missing label file set05_1307.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1308.jpg",
+      "reason": "missing label file set05_1308.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1309.jpg",
+      "reason": "missing label file set05_1309.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1310.jpg",
+      "reason": "missing label file set05_1310.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1311.jpg",
+      "reason": "missing label file set05_1311.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1312.jpg",
+      "reason": "missing label file set05_1312.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1313.jpg",
+      "reason": "missing label file set05_1313.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1314.jpg",
+      "reason": "missing label file set05_1314.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1315.jpg",
+      "reason": "missing label file set05_1315.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1316.jpg",
+      "reason": "missing label file set05_1316.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1317.jpg",
+      "reason": "missing label file set05_1317.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1318.jpg",
+      "reason": "missing label file set05_1318.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1319.jpg",
+      "reason": "missing label file set05_1319.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1320.jpg",
+      "reason": "missing label file set05_1320.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1321.jpg",
+      "reason": "missing label file set05_1321.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1322.jpg",
+      "reason": "missing label file set05_1322.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1323.jpg",
+      "reason": "missing label file set05_1323.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1324.jpg",
+      "reason": "missing label file set05_1324.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1325.jpg",
+      "reason": "missing label file set05_1325.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1326.jpg",
+      "reason": "missing label file set05_1326.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1327.jpg",
+      "reason": "missing label file set05_1327.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1340.jpg",
+      "reason": "missing label file set05_1340.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1341.jpg",
+      "reason": "missing label file set05_1341.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1342.jpg",
+      "reason": "missing label file set05_1342.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1343.jpg",
+      "reason": "missing label file set05_1343.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1344.jpg",
+      "reason": "missing label file set05_1344.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1345.jpg",
+      "reason": "missing label file set05_1345.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1346.jpg",
+      "reason": "missing label file set05_1346.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1347.jpg",
+      "reason": "missing label file set05_1347.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1348.jpg",
+      "reason": "missing label file set05_1348.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1349.jpg",
+      "reason": "missing label file set05_1349.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1350.jpg",
+      "reason": "missing label file set05_1350.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1351.jpg",
+      "reason": "missing label file set05_1351.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1352.jpg",
+      "reason": "missing label file set05_1352.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1353.jpg",
+      "reason": "missing label file set05_1353.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1354.jpg",
+      "reason": "missing label file set05_1354.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1355.jpg",
+      "reason": "missing label file set05_1355.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1356.jpg",
+      "reason": "missing label file set05_1356.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1357.jpg",
+      "reason": "missing label file set05_1357.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1358.jpg",
+      "reason": "missing label file set05_1358.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1359.jpg",
+      "reason": "missing label file set05_1359.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1360.jpg",
+      "reason": "missing label file set05_1360.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1361.jpg",
+      "reason": "missing label file set05_1361.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1362.jpg",
+      "reason": "missing label file set05_1362.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1363.jpg",
+      "reason": "missing label file set05_1363.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1364.jpg",
+      "reason": "missing label file set05_1364.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1373.jpg",
+      "reason": "missing label file set05_1373.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set05/set05_1374.jpg",
+      "reason": "missing label file set05_1374.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0299.jpg",
+      "reason": "missing label file set07_0299.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0302.jpg",
+      "reason": "missing label file set07_0302.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0303.jpg",
+      "reason": "missing label file set07_0303.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0304.jpg",
+      "reason": "missing label file set07_0304.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0305.jpg",
+      "reason": "missing label file set07_0305.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0318.jpg",
+      "reason": "missing label file set07_0318.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0319.jpg",
+      "reason": "missing label file set07_0319.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0320.jpg",
+      "reason": "missing label file set07_0320.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0321.jpg",
+      "reason": "missing label file set07_0321.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0322.jpg",
+      "reason": "missing label file set07_0322.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0323.jpg",
+      "reason": "missing label file set07_0323.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0324.jpg",
+      "reason": "missing label file set07_0324.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0325.jpg",
+      "reason": "missing label file set07_0325.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0326.jpg",
+      "reason": "missing label file set07_0326.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0327.jpg",
+      "reason": "missing label file set07_0327.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0328.jpg",
+      "reason": "missing label file set07_0328.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0329.jpg",
+      "reason": "missing label file set07_0329.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0330.jpg",
+      "reason": "missing label file set07_0330.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0331.jpg",
+      "reason": "missing label file set07_0331.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0332.jpg",
+      "reason": "missing label file set07_0332.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0333.jpg",
+      "reason": "missing label file set07_0333.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0334.jpg",
+      "reason": "missing label file set07_0334.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0335.jpg",
+      "reason": "missing label file set07_0335.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0336.jpg",
+      "reason": "missing label file set07_0336.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0337.jpg",
+      "reason": "missing label file set07_0337.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0338.jpg",
+      "reason": "missing label file set07_0338.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0339.jpg",
+      "reason": "missing label file set07_0339.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0340.jpg",
+      "reason": "missing label file set07_0340.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0341.jpg",
+      "reason": "missing label file set07_0341.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0342.jpg",
+      "reason": "missing label file set07_0342.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0343.jpg",
+      "reason": "missing label file set07_0343.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0344.jpg",
+      "reason": "missing label file set07_0344.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0345.jpg",
+      "reason": "missing label file set07_0345.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0346.jpg",
+      "reason": "missing label file set07_0346.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0347.jpg",
+      "reason": "missing label file set07_0347.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0348.jpg",
+      "reason": "missing label file set07_0348.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0349.jpg",
+      "reason": "missing label file set07_0349.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0350.jpg",
+      "reason": "missing label file set07_0350.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0351.jpg",
+      "reason": "missing label file set07_0351.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0352.jpg",
+      "reason": "missing label file set07_0352.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0353.jpg",
+      "reason": "missing label file set07_0353.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0354.jpg",
+      "reason": "missing label file set07_0354.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0355.jpg",
+      "reason": "missing label file set07_0355.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0356.jpg",
+      "reason": "missing label file set07_0356.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0357.jpg",
+      "reason": "missing label file set07_0357.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0358.jpg",
+      "reason": "missing label file set07_0358.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0359.jpg",
+      "reason": "missing label file set07_0359.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0360.jpg",
+      "reason": "missing label file set07_0360.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0361.jpg",
+      "reason": "missing label file set07_0361.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0362.jpg",
+      "reason": "missing label file set07_0362.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0363.jpg",
+      "reason": "missing label file set07_0363.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0364.jpg",
+      "reason": "missing label file set07_0364.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0365.jpg",
+      "reason": "missing label file set07_0365.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0366.jpg",
+      "reason": "missing label file set07_0366.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0367.jpg",
+      "reason": "missing label file set07_0367.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0368.jpg",
+      "reason": "missing label file set07_0368.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0369.jpg",
+      "reason": "missing label file set07_0369.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0370.jpg",
+      "reason": "missing label file set07_0370.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0371.jpg",
+      "reason": "missing label file set07_0371.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0372.jpg",
+      "reason": "missing label file set07_0372.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0373.jpg",
+      "reason": "missing label file set07_0373.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0374.jpg",
+      "reason": "missing label file set07_0374.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0375.jpg",
+      "reason": "missing label file set07_0375.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0376.jpg",
+      "reason": "missing label file set07_0376.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0377.jpg",
+      "reason": "missing label file set07_0377.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0378.jpg",
+      "reason": "missing label file set07_0378.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0379.jpg",
+      "reason": "missing label file set07_0379.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0380.jpg",
+      "reason": "missing label file set07_0380.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0381.jpg",
+      "reason": "missing label file set07_0381.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0382.jpg",
+      "reason": "missing label file set07_0382.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0383.jpg",
+      "reason": "missing label file set07_0383.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0384.jpg",
+      "reason": "missing label file set07_0384.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0385.jpg",
+      "reason": "missing label file set07_0385.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0386.jpg",
+      "reason": "missing label file set07_0386.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0387.jpg",
+      "reason": "missing label file set07_0387.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0388.jpg",
+      "reason": "missing label file set07_0388.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0389.jpg",
+      "reason": "missing label file set07_0389.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0390.jpg",
+      "reason": "missing label file set07_0390.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0391.jpg",
+      "reason": "missing label file set07_0391.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0392.jpg",
+      "reason": "missing label file set07_0392.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0393.jpg",
+      "reason": "missing label file set07_0393.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0394.jpg",
+      "reason": "missing label file set07_0394.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0395.jpg",
+      "reason": "missing label file set07_0395.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0396.jpg",
+      "reason": "missing label file set07_0396.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0397.jpg",
+      "reason": "missing label file set07_0397.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0398.jpg",
+      "reason": "missing label file set07_0398.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0399.jpg",
+      "reason": "missing label file set07_0399.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0400.jpg",
+      "reason": "missing label file set07_0400.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0403.jpg",
+      "reason": "missing label file set07_0403.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0481.jpg",
+      "reason": "missing label file set07_0481.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0922.jpg",
+      "reason": "set07_0922.txt:1: cx=-0.004296875 out of range [0.0, 1.0] (line: '0 -0.004296875 0.7930555555555555 0.07734375 0.34444444444444444')"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0923.jpg",
+      "reason": "missing label file set07_0923.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0924.jpg",
+      "reason": "missing label file set07_0924.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0925.jpg",
+      "reason": "missing label file set07_0925.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0926.jpg",
+      "reason": "missing label file set07_0926.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0927.jpg",
+      "reason": "missing label file set07_0927.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0928.jpg",
+      "reason": "missing label file set07_0928.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0930.jpg",
+      "reason": "missing label file set07_0930.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0931.jpg",
+      "reason": "missing label file set07_0931.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0932.jpg",
+      "reason": "missing label file set07_0932.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0933.jpg",
+      "reason": "missing label file set07_0933.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0934.jpg",
+      "reason": "missing label file set07_0934.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0935.jpg",
+      "reason": "missing label file set07_0935.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0936.jpg",
+      "reason": "missing label file set07_0936.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0937.jpg",
+      "reason": "missing label file set07_0937.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0938.jpg",
+      "reason": "missing label file set07_0938.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0939.jpg",
+      "reason": "missing label file set07_0939.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_0940.jpg",
+      "reason": "missing label file set07_0940.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1123.jpg",
+      "reason": "missing label file set07_1123.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1124.jpg",
+      "reason": "missing label file set07_1124.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1125.jpg",
+      "reason": "missing label file set07_1125.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1126.jpg",
+      "reason": "missing label file set07_1126.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1127.jpg",
+      "reason": "missing label file set07_1127.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1128.jpg",
+      "reason": "missing label file set07_1128.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1129.jpg",
+      "reason": "missing label file set07_1129.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1130.jpg",
+      "reason": "missing label file set07_1130.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1131.jpg",
+      "reason": "missing label file set07_1131.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1132.jpg",
+      "reason": "missing label file set07_1132.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1133.jpg",
+      "reason": "missing label file set07_1133.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1134.jpg",
+      "reason": "missing label file set07_1134.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1135.jpg",
+      "reason": "missing label file set07_1135.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1136.jpg",
+      "reason": "missing label file set07_1136.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1137.jpg",
+      "reason": "missing label file set07_1137.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1138.jpg",
+      "reason": "missing label file set07_1138.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1139.jpg",
+      "reason": "missing label file set07_1139.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1140.jpg",
+      "reason": "missing label file set07_1140.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1141.jpg",
+      "reason": "missing label file set07_1141.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1142.jpg",
+      "reason": "missing label file set07_1142.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1143.jpg",
+      "reason": "missing label file set07_1143.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1144.jpg",
+      "reason": "missing label file set07_1144.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1145.jpg",
+      "reason": "missing label file set07_1145.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1146.jpg",
+      "reason": "missing label file set07_1146.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1147.jpg",
+      "reason": "missing label file set07_1147.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1148.jpg",
+      "reason": "missing label file set07_1148.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1149.jpg",
+      "reason": "missing label file set07_1149.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1150.jpg",
+      "reason": "missing label file set07_1150.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1151.jpg",
+      "reason": "missing label file set07_1151.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1152.jpg",
+      "reason": "missing label file set07_1152.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1153.jpg",
+      "reason": "missing label file set07_1153.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1154.jpg",
+      "reason": "missing label file set07_1154.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1155.jpg",
+      "reason": "missing label file set07_1155.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set07/set07_1156.jpg",
+      "reason": "missing label file set07_1156.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set08/set08_0289.jpg",
+      "reason": "set08_0289.txt:2: cy=1.0013888888888889 out of range [0.0, 1.0] (line: '0 0.085546875 1.0013888888888889 0.03984375 0.08888888888888889')"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0000.jpg",
+      "reason": "missing label file set09_0000.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0001.jpg",
+      "reason": "missing label file set09_0001.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0002.jpg",
+      "reason": "missing label file set09_0002.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0003.jpg",
+      "reason": "missing label file set09_0003.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0004.jpg",
+      "reason": "missing label file set09_0004.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0005.jpg",
+      "reason": "missing label file set09_0005.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0006.jpg",
+      "reason": "missing label file set09_0006.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0007.jpg",
+      "reason": "missing label file set09_0007.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0008.jpg",
+      "reason": "missing label file set09_0008.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0009.jpg",
+      "reason": "missing label file set09_0009.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0010.jpg",
+      "reason": "missing label file set09_0010.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0011.jpg",
+      "reason": "missing label file set09_0011.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0012.jpg",
+      "reason": "missing label file set09_0012.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0013.jpg",
+      "reason": "missing label file set09_0013.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0014.jpg",
+      "reason": "missing label file set09_0014.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0015.jpg",
+      "reason": "missing label file set09_0015.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0016.jpg",
+      "reason": "missing label file set09_0016.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0059.jpg",
+      "reason": "missing label file set09_0059.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0060.jpg",
+      "reason": "missing label file set09_0060.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0061.jpg",
+      "reason": "missing label file set09_0061.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0062.jpg",
+      "reason": "missing label file set09_0062.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0063.jpg",
+      "reason": "missing label file set09_0063.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0064.jpg",
+      "reason": "missing label file set09_0064.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0065.jpg",
+      "reason": "missing label file set09_0065.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0066.jpg",
+      "reason": "missing label file set09_0066.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0067.jpg",
+      "reason": "missing label file set09_0067.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0068.jpg",
+      "reason": "missing label file set09_0068.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0069.jpg",
+      "reason": "missing label file set09_0069.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0070.jpg",
+      "reason": "missing label file set09_0070.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0071.jpg",
+      "reason": "missing label file set09_0071.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0072.jpg",
+      "reason": "missing label file set09_0072.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0073.jpg",
+      "reason": "missing label file set09_0073.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0074.jpg",
+      "reason": "missing label file set09_0074.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0075.jpg",
+      "reason": "missing label file set09_0075.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0076.jpg",
+      "reason": "missing label file set09_0076.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0077.jpg",
+      "reason": "missing label file set09_0077.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0078.jpg",
+      "reason": "missing label file set09_0078.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0079.jpg",
+      "reason": "missing label file set09_0079.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0080.jpg",
+      "reason": "missing label file set09_0080.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0081.jpg",
+      "reason": "missing label file set09_0081.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0082.jpg",
+      "reason": "missing label file set09_0082.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0083.jpg",
+      "reason": "missing label file set09_0083.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0084.jpg",
+      "reason": "missing label file set09_0084.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0085.jpg",
+      "reason": "missing label file set09_0085.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0086.jpg",
+      "reason": "missing label file set09_0086.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0087.jpg",
+      "reason": "missing label file set09_0087.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0088.jpg",
+      "reason": "missing label file set09_0088.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0089.jpg",
+      "reason": "missing label file set09_0089.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0090.jpg",
+      "reason": "missing label file set09_0090.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0091.jpg",
+      "reason": "missing label file set09_0091.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0092.jpg",
+      "reason": "missing label file set09_0092.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0093.jpg",
+      "reason": "missing label file set09_0093.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0094.jpg",
+      "reason": "missing label file set09_0094.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0095.jpg",
+      "reason": "missing label file set09_0095.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0096.jpg",
+      "reason": "missing label file set09_0096.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0097.jpg",
+      "reason": "missing label file set09_0097.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0694.jpg",
+      "reason": "missing label file set09_0694.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0695.jpg",
+      "reason": "missing label file set09_0695.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0696.jpg",
+      "reason": "missing label file set09_0696.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0697.jpg",
+      "reason": "missing label file set09_0697.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0698.jpg",
+      "reason": "missing label file set09_0698.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0699.jpg",
+      "reason": "missing label file set09_0699.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0700.jpg",
+      "reason": "missing label file set09_0700.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0701.jpg",
+      "reason": "missing label file set09_0701.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0702.jpg",
+      "reason": "missing label file set09_0702.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0703.jpg",
+      "reason": "missing label file set09_0703.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0704.jpg",
+      "reason": "missing label file set09_0704.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0705.jpg",
+      "reason": "missing label file set09_0705.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0706.jpg",
+      "reason": "missing label file set09_0706.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0707.jpg",
+      "reason": "missing label file set09_0707.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0708.jpg",
+      "reason": "missing label file set09_0708.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0709.jpg",
+      "reason": "missing label file set09_0709.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0710.jpg",
+      "reason": "missing label file set09_0710.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0770.jpg",
+      "reason": "missing label file set09_0770.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0771.jpg",
+      "reason": "missing label file set09_0771.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0772.jpg",
+      "reason": "missing label file set09_0772.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0773.jpg",
+      "reason": "missing label file set09_0773.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0786.jpg",
+      "reason": "missing label file set09_0786.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0787.jpg",
+      "reason": "missing label file set09_0787.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0820.jpg",
+      "reason": "missing label file set09_0820.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_0821.jpg",
+      "reason": "missing label file set09_0821.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_1373.jpg",
+      "reason": "missing label file set09_1373.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_1374.jpg",
+      "reason": "missing label file set09_1374.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_1375.jpg",
+      "reason": "missing label file set09_1375.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_1376.jpg",
+      "reason": "missing label file set09_1376.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_1377.jpg",
+      "reason": "missing label file set09_1377.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_1378.jpg",
+      "reason": "missing label file set09_1378.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_1379.jpg",
+      "reason": "missing label file set09_1379.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_1380.jpg",
+      "reason": "missing label file set09_1380.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_1381.jpg",
+      "reason": "missing label file set09_1381.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_1382.jpg",
+      "reason": "missing label file set09_1382.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_1383.jpg",
+      "reason": "missing label file set09_1383.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_1384.jpg",
+      "reason": "missing label file set09_1384.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_1385.jpg",
+      "reason": "missing label file set09_1385.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_1386.jpg",
+      "reason": "missing label file set09_1386.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_1387.jpg",
+      "reason": "missing label file set09_1387.txt"
+    },
+    {
+      "image": "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data/set09/set09_1388.jpg",
+      "reason": "missing label file set09_1388.txt"
+    }
+  ],
+  "summary": {
+    "precision": 0.8179831114718457,
+    "recall": 0.743012294374618,
+    "map50": 0.8187156936477146,
+    "map50_95": 0.5795148512408469
+  },
+  "per_class": {
+    "person": {
+      "images": 118847,
+      "instances": 387948,
+      "precision": 0.85914,
+      "recall": 0.80397,
+      "map50": 0.88593,
+      "map50_95": 0.65421
+    },
+    "bird": {
+      "images": 6844,
+      "instances": 15935,
+      "precision": 0.85162,
+      "recall": 0.68171,
+      "map50": 0.77842,
+      "map50_95": 0.48204
+    },
+    "cat": {
+      "images": 5055,
+      "instances": 5725,
+      "precision": 0.75355,
+      "recall": 0.789,
+      "map50": 0.81981,
+      "map50_95": 0.55212
+    },
+    "dog": {
+      "images": 5254,
+      "instances": 6410,
+      "precision": 0.81278,
+      "recall": 0.72062,
+      "map50": 0.79986,
+      "map50_95": 0.57792
+    },
+    "horse": {
+      "images": 3069,
+      "instances": 6839,
+      "precision": 0.85481,
+      "recall": 0.7507,
+      "map50": 0.8349,
+      "map50_95": 0.59908
+    },
+    "sheep": {
+      "images": 1594,
+      "instances": 9577,
+      "precision": 0.77487,
+      "recall": 0.73457,
+      "map50": 0.7975,
+      "map50_95": 0.59316
+    },
+    "cow": {
+      "images": 2056,
+      "instances": 8387,
+      "precision": 0.81911,
+      "recall": 0.72052,
+      "map50": 0.81457,
+      "map50_95": 0.59807
+    }
+  }
+}
