@@ -161,7 +161,7 @@ def report_via_mqtt(num_detected_boxes, mqtt_client, mqtt_topic, key):
     mqtt_msg = f"{{\"v\":{num_detected_boxes}}}"
     result_mqtt = mqtt_client.publish(mqtt_topic, mqtt_msg)
     if result_mqtt.rc == mqtt.MQTT_ERR_SUCCESS:
-        logger.info(f"[{key}] Publish succeeded : {mqtt_msg}")
+        logger.debug(f"[{key}] Publish succeeded : {mqtt_msg}")
     else:
         logger.error(f"[{key}] Publish failed with error code: {result_mqtt.rc}")
 
@@ -414,8 +414,8 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
         time_for_postprocessing = toc3 - toc2
         time_for_report = toc - toc3
 
-        logger.info(f"[{key}] Total duration   : {tic_toc*1000:.2f}ms")
-        logger.info(f"[{key}]   inference({time_for_inference*1000:.2f}ms) + postprocessing({time_for_postprocessing*1000:.2f}ms) + report({time_for_report*1000:.2f}ms)")
+        logger.debug(f"[{key}] Total duration   : {tic_toc*1000:.2f}ms")
+        logger.debug(f"[{key}]   inference({time_for_inference*1000:.2f}ms) + postprocessing({time_for_postprocessing*1000:.2f}ms) + report({time_for_report*1000:.2f}ms)")
         logger.info(f"[{key}] Total frame rate : {fps:.2f} fps\n")
         
         remaining_time = SPACENORM_REPORT_PERIOD_SEC - tic_toc
@@ -524,7 +524,7 @@ def detect_multithreaded(model, imgsz, args, args_dict, vis, detect_csv):
         grab_img_thread_count = 0
         
         for t in threading.enumerate():
-            logger.info(f"thread {thread_count} : {t.name}")
+            logger.debug(f"thread {thread_count} : {t.name}")
             thread_count += 1
             if 'grab_img' in t.name:
                 grab_img_thread_count += 1
