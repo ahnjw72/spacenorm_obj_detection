@@ -19,7 +19,7 @@ INPUT_VIDEO_BASE_DIR="01.videos"
 OUTPUT_IMAGE_BASE_DIR="02.images"
 
 #sets = os.listdir(INPUT_VIDEO_BASE_DIR)
-sets = ["R1"]
+sets = ["jaeil"]
 # sets = ["초량대영빌딩_1층현관@2023-10-05T23:04:49_UTC", "초량대영빌딩_1층현관@2023-10-06T04:09:33_UTC", 
 #         "초량대영빌딩_1층현관@2023-10-05T16:09:33_UTC", "초량대영빌딩_1층현관@2023-10-06T16:57:04_UTC",
 #         "초량대영빌딩_1층현관@2023-10-06T15:58:24_UTC", "초량대영빌딩_1층현관@2023-10-06T22:37:13_UTC",
@@ -27,7 +27,7 @@ sets = ["R1"]
 #         "초량대영빌딩_1층현관@2023-10-07T14:01:15_UTC", "초량대영빌딩_1층현관@2023-10-07T23:52:21_UTC"
 #         ]
 #video_type = "mp4" # "mp4" or "avi"
-skip = 1 # skip=1 --> save all the frames
+skip = 15 # skip=1 --> save all the frames
 
 for video_set in sets:
     #input_videos = os.path.join(INPUT_VIDEO_BASE_DIR, video_set) + "/*.mp4"

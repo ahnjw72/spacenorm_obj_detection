@@ -9,7 +9,7 @@ BASE_DIR = "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data"
 SET_LIST = []
 
 SET_START_NUM = 1
-SET_END_NUM = 149
+SET_END_NUM = 150
 
 def image_ext(set_name, image_name):
     """.jpg for legacy sets, .png for sets staged by dataset_builder (lossless
