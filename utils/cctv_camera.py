@@ -572,8 +572,12 @@ def grab_img(cam):
     logger.info(f"[{key}] [grab_img() thread] starts.")
 
     while True:
+        with cam.thread_running_lock:
+            if not cam.thread_running:
+                break
+
         img_handle = None
-        
+
         local_cap = cam.cap
         if local_cap is not None and local_cap.isOpened():
 
@@ -613,6 +617,13 @@ def grab_img(cam):
                 time.sleep(sleep_sec)  # Sleep before retrying to read
             else:
                 cam.img_handle = img_handle
+
+    if cam.cap is not None:
+        logger.info(f"[{key}] [grab_img() thread] releasing cam.cap before exiting.")
+        cam.cap.release()
+        cam.cap = None
+
+    logger.info(f"[{key}] [grab_img() thread] exiting.")
 
 
 class RTSP_Camera():

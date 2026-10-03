@@ -45,7 +45,49 @@ def is_point_inside_polygon(xy, polygon):
     return odd_nodes
 
 # roi : {'img_w': 1920, 'img_h': 1080, 'vertices': [[[38, 528], [391, 491], [159, 1062], [521, 1041]], [[77, 500], [111, 40], [160, 1000], [900, 1050]]]}
-# boxes (list of xyxy):  [[566, 37, 600, 62], [710, 48, 787, 155]] 
+# boxes (list of xyxy):  [[566, 37, 600, 62], [710, 48, 787, 155]]
+
+def _normalized_roi_polygons(roi):
+    """Return roi['vertices'] normalized to 0..1 ratio coordinates.
+
+    When roi['vertices_sorted'] is falsy/absent, each polygon is passed
+    through make_counterclockwise() first (legacy un-sorted vertices).
+    """
+    vertices_roi = roi['vertices']
+    img_w_roi = roi['img_w']
+    img_h_roi = roi['img_h']
+    vertices_sorted = roi.get('vertices_sorted', 0)
+
+    normalized_polygons = []
+    for polygon in vertices_roi:
+        if vertices_sorted == 0:
+            normalized_polygon = make_counterclockwise([[x/img_w_roi, y/img_h_roi] for x, y in polygon])
+        else:
+            normalized_polygon = [[x/img_w_roi, y/img_h_roi] for x, y in polygon]
+        normalized_polygons.append(normalized_polygon)
+
+    return normalized_polygons
+
+
+def draw_roi_overlay(img, roi):
+    """Return a copy of img with the ROI polygon(s) drawn in red.
+
+    Used to write a sample image for each sensor so the ROI borderline can
+    be checked by a human after a dynamic config init/renewal.
+    """
+    output_img = img.copy()
+    img_w_output_img = img.shape[1]
+    img_h_output_img = img.shape[0]
+
+    for normalized_polygon in _normalized_roi_polygons(roi):
+        polygon_in_img = [[int(x*img_w_output_img), int(y*img_h_output_img)] for x, y in normalized_polygon]
+        polygon_pts = np.array(polygon_in_img, np.int32)
+        polygon_pts = polygon_pts.reshape((-1, 1, 2))
+        cv2.polylines(output_img, [polygon_pts], isClosed=True, color=(0, 0, 255), thickness=2)
+
+    return output_img
+
+
 temp_img_count = 0
 def remove_outside_ROI(boxes, confs, clss, imgsz, roi, img, key, save_result=False):
     
@@ -67,29 +109,12 @@ def remove_outside_ROI(boxes, confs, clss, imgsz, roi, img, key, save_result=Fal
     normalized_boxes = [[x1/img_w_output_img, y1/img_h_output_img, x2/img_w_output_img, y2/img_h_output_img] for x1, y1, x2, y2 in boxes]
     center_boxes = [[(x1+x2)/2, (y1+y2)/2] for x1, y1, x2, y2 in normalized_boxes]
     
-    vertices_roi = roi['vertices']
-    img_w_roi = roi['img_w']
-    img_h_roi = roi['img_h']
-    if 'vertices_sorted' in roi:
-        vertices_sorted = roi['vertices_sorted']
-    else:
-        vertices_sorted = 0
-
     # assert(vertices_roi == 1) # due to uncertain behavior of make_counterclockwise(), we only support coordinates with sorted order (counterclockwise) now.
 
     new_boxes = []
     new_confs = []
     new_clss = []
-    for polygon in vertices_roi: # a polygon (= a list of xy coordinates) : [[38, 528], [391, 491], [159, 1062], [521, 1041]]
-        
-        # if vertices_sorted is not zero, then the vertices are sorted in the counterclockwise order already and
-        # so make_counterclockwise() is not applied.
-        if vertices_sorted == 0:
-            normalized_polygon = make_counterclockwise([[x/img_w_roi, y/img_h_roi] for x, y in polygon])
-        else:
-            normalized_polygon = [[x/img_w_roi, y/img_h_roi] for x, y in polygon]
-
-        # normalized_polygons.append(normalized_polygon)
+    for normalized_polygon in _normalized_roi_polygons(roi): # a polygon (= a list of normalized xy coordinates)
 
         if save_result and (temp_img_count < max_img_count):
             polygon_in_img = [[int(x*img_w_output_img), int(y*img_h_output_img)] for x,y in normalized_polygon]

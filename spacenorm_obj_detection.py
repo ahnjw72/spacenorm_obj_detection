@@ -24,6 +24,7 @@ import traceback
 import json
 import paho.mqtt.client as mqtt
 from pathlib import Path
+from types import SimpleNamespace
 import socket
 
 from flask import Response, request, Flask, render_template
@@ -41,6 +42,7 @@ SETTINGS.update({'sync': False})
 
 from .utils.yolo_inference import make_yolo_annotation_file, create_yolo_model, yolo_inference_image, record_detection_result
 from .utils.config_loader import SpacenormConfigLoader
+from .utils.dynamic_config import fetch_dynamic_config, diff_configs, requires_thread_restart, save_and_upload_snapshot
 
 from prometheus_client import Gauge
 
@@ -48,6 +50,10 @@ import urllib.parse
 
 cctv_ID = {}
 RTSP_Camera_dict = {}
+
+# dynamic-method only: key -> {'thread': Thread, 'stop_event': Event, 'cam': RTSP_Camera}
+detector_registry = {}
+registry_lock = threading.Lock()
 
 outputFrame = None
 lock = threading.Lock()
@@ -165,9 +171,13 @@ def report_via_mqtt(num_detected_boxes, mqtt_client, mqtt_topic, key):
     else:
         logger.error(f"[{key}] Publish failed with error code: {result_mqtt.rc}")
 
-def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_writer, detect_csv_writer_lock):
+def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_writer, detect_csv_writer_lock, stop_event=None):
     """
     Thread function for each cam (ex. of key: 'B1F_Food')
+
+    stop_event: when provided (dynamic config method), the loop exits once
+    it is set, so the thread can be stopped when its sensor is removed from
+    the dynamic configuration. None (static method) means run forever, as before.
     """
     # grab global references to the output frame, and lock variables
     global outputFrame, lock, selected_key
@@ -227,7 +237,7 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
         time.sleep(2.0)
 
     prev_tic = time.time()
-    while True:
+    while stop_event is None or not stop_event.is_set():
         tic = time.time()
 
         duration_betn_read_calls = tic - prev_tic
@@ -463,42 +473,148 @@ def rtsp_read_watchdog(cameras, hang_sec=20):
                     cam.read_hang_reported = False
         time.sleep(2)
 
-def detect_multithreaded(model, imgsz, args, args_dict, vis, detect_csv):
+def _build_per_key_args(args, key):
+    """Return a per-key copy of `args` with spacenorm_device_key set to `key`.
+
+    Shared by process_spacenorm_devicekey_file() (static) and the dynamic
+    config initial build / refresh loop's add-path.
+    """
+    new_args = copy.copy(args)
+    new_args.spacenorm_device_key = key
+    return new_args
+
+
+def _spawn_detector(key, args_for_key, ctx):
+    """Create an RTSP_Camera + detector_per_cam thread for `key` and record
+    it in RTSP_Camera_dict / detector_registry.
+
+    Shared by detect_multithreaded()'s initial spawn loop (static and
+    dynamic) and dynamic_config_refresh_loop()'s add-path. `ctx` bundles
+    model/imgsz/vis/yolo_lock/detect_csv_writer/detect_csv_writer_lock.
+    """
+    cam = RTSP_Camera(args_for_key, cctv_ID)
+    RTSP_Camera_dict[key] = cam
+
+    stop_event = threading.Event()
+    detector_thread = threading.Thread(
+        name=f"detector_per_cam[{key}]",
+        target=detector_per_cam,
+        args=(cam, key, ctx.model, ctx.imgsz, args_for_key, ctx.vis, ctx.yolo_lock, ctx.detect_csv_writer, ctx.detect_csv_writer_lock, stop_event)
+    )
+    detector_thread.daemon = True
+    detector_thread.start()
+
+    with registry_lock:
+        detector_registry[key] = {'thread': detector_thread, 'stop_event': stop_event, 'cam': cam}
+
+    logger.info(f"   Thread for {key} started..")
+
+
+def _remove_detector(key, timeout=15.0):
+    """Stop and remove the detector thread + RTSP_Camera for `key`, freeing
+    the RTSP connection. No-op if `key` isn't currently registered.
+    """
+    with registry_lock:
+        entry = detector_registry.pop(key, None)
+
+    if entry is None:
+        logger.warning(f"[{key}] _remove_detector() called but key is not registered -- nothing to do.")
+        return
+
+    entry['stop_event'].set()
+
+    cam = RTSP_Camera_dict.pop(key, None)
+    if cam is not None:
+        cam.release()
+
+    entry['thread'].join(timeout=timeout)
+    if entry['thread'].is_alive():
+        logger.warning(f"[{key}] detector_per_cam thread did not stop within {timeout}s.")
+
+    logger.info(f"[{key}] detector removed.")
+
+
+def dynamic_config_refresh_loop(cfg, ctx):
+    """Periodically re-fetch the dynamic sensors & CCTV configuration (see
+    requirements §5) and apply any differences to the running detector
+    threads: a new sensor/CCTV launches a new thread, a removed one removes
+    its thread, and new roi_vertices are applied to the currently running
+    thread without a restart. Also writes/uploads an ROI snapshot for every
+    active sensor on every pass (requirement §7). Only started when
+    cfg.config_method == "dynamic"; config_renew_period is meaningless in
+    static method.
+    """
+    retry_period_sec = 30
+
+    while True:
+        new_cfg = fetch_dynamic_config(cfg)
+        if new_cfg is None:
+            logger.error(f"dynamic_config_refresh_loop: fetch failed -- retrying in {retry_period_sec}s")
+            time.sleep(retry_period_sec)
+            continue
+
+        old_cfg = dict(cctv_ID)
+        added, removed, changed = diff_configs(old_cfg, new_cfg)
+
+        for key in removed:
+            logger.info(f"[{key}] removed from dynamic config -- stopping detector")
+            _remove_detector(key)
+            cctv_ID.pop(key, None)
+
+        for key in added:
+            logger.info(f"[{key}] added to dynamic config -- starting detector")
+            cctv_ID[key] = new_cfg[key]
+            _spawn_detector(key, _build_per_key_args(cfg, key), ctx)
+
+        for key in changed:
+            old_entry = old_cfg[key]
+            new_entry = new_cfg[key]
+            cctv_ID[key] = new_entry
+
+            if requires_thread_restart(old_entry, new_entry) and key in RTSP_Camera_dict:
+                logger.info(f"[{key}] uri/mqtt broker changed -- restarting detector thread")
+                _remove_detector(key)
+                _spawn_detector(key, _build_per_key_args(cfg, key), ctx)
+            else:
+                logger.info(f"[{key}] ROI/min_obj_size_ratio updated in place (no restart needed)")
+
+        for key in list(cctv_ID.keys()):
+            cam = RTSP_Camera_dict.get(key)
+            if cam is not None and cam.isOpened():
+                save_and_upload_snapshot(key, cam, cctv_ID[key], cfg.roi_snapshot_dir)
+
+        time.sleep(max(cfg.config_renew_period, 1) * 60)
+
+
+def _start_dynamic_refresh_if_needed(config_method, args, ctx):
+    if config_method == "dynamic":
+        refresh_thread = threading.Thread(
+            name="dynamic_config_refresh",
+            target=dynamic_config_refresh_loop,
+            args=(args, ctx),
+            daemon=True
+        )
+        refresh_thread.start()
+        logger.info("   dynamic_config_refresh thread started..")
+
+
+def detect_multithreaded(ctx, args_dict):
     """Continuously capture images from multiple RTSP cameras and do object detection with a single YOLO model.
         - multithreaded version - ahnjw,2022.11.01
 
     # Arguments
-      model: Ultralytics YOLO model instance
-      args: input arguments containing various thresholds for detection and background removal.
-      vis: for visualization.
-      detect_csv: csv file for recording detection result for further investigation
+      ctx: SimpleNamespace bundling model/imgsz/vis/yolo_lock/detect_csv_writer/detect_csv_writer_lock,
+           shared with dynamic_config_refresh_loop() so newly-added sensors reuse the same YOLO model/lock/csv writer.
+      args_dict: per-key argparse.Namespace copies (device key -> args), built either from
+           process_spacenorm_devicekey_file() (static) or the initial dynamic config fetch (dynamic).
     """
 
     logger.info("Start detect_multithreaded()........")
 
-    if args.record_detection_result:
-        assert(detect_csv is not None)
-        detect_csv_writer = csv.writer(detect_csv)
-        detect_csv_writer.writerow(['key', 'time', 'type', 'motion', 'conf', 'image'])
-        #logger.info("detect_csv header is written")
-        detect_csv_writer_lock = threading.Lock()
-    else:
-        detect_csv_writer = None
-        detect_csv_writer_lock = None
-    
-    yolo_lock = threading.Lock()
-
     # Create a thread for each camera stream
-    threads = []
     for key in args_dict: # ex. of key: 'B1F_Food'
-        cam = RTSP_Camera(args_dict[key], cctv_ID)
-        RTSP_Camera_dict[key] = cam
-        detector_thread = threading.Thread(name=f"detector_per_cam[{key}]", target=detector_per_cam, args=(cam, key, model, imgsz, args_dict[key], vis, yolo_lock, detect_csv_writer, detect_csv_writer_lock))
-        detector_thread.daemon = True
-        detector_thread.start()
-        threads.append(detector_thread)
-        logger.info(f"   Thread for {key} started..")
-        
+        _spawn_detector(key, args_dict[key], ctx)
+
     # Start a watchdog thread to monitor the status of cam.read() for each camera stream and to release and re-open the stream when cam.read() is detected to be hung for a certain period of time.
     watchdog_thread = threading.Thread(
         target=rtsp_read_watchdog,
@@ -515,32 +631,31 @@ def detect_multithreaded(model, imgsz, args, args_dict, vis, detect_csv):
     # process_name = args.cfg.split('/')[-1].split('.')[0] + '_재실감지' # ex: "cym_재실감지"
     # process_name = args.process_name
 
-    num_keys = len(args_dict)
     while True:
         time.sleep(120) # sleep for 120 seconds before checking thread status
-        logger.info('='*20+' thread info '+'='*20)                    
-        
+        logger.info('='*20+' thread info '+'='*20)
+
         thread_count=0
         grab_img_thread_count = 0
-        
+
         for t in threading.enumerate():
             logger.debug(f"thread {thread_count} : {t.name}")
             thread_count += 1
             if 'grab_img' in t.name:
                 grab_img_thread_count += 1
-        
+
+        with registry_lock:
+            num_keys = len(detector_registry) # live count -- changes over time in dynamic method
+
         logger.info(f"--> {grab_img_thread_count} grab_img threads running (num_keys = {num_keys})")
         logger.info(f"--> Total {thread_count} threads running")
-        
+
         if num_keys != grab_img_thread_count:
             logger.warning(f"Number of grab_img threads ({grab_img_thread_count}) is different from number of keys ({num_keys})!!")
 
         logger.info("="*53)
         # thread_count_metric.labels(process=process_name).set(thread_count)
         thread_count_metric.set(thread_count)
-
-    # for t in threads:
-    #     t.join()
 
 def detector_YOLO_multithreaded(args):
     logger.info("detector_YOLO_multithreaded()...")
@@ -557,11 +672,21 @@ def detector_YOLO_multithreaded(args):
             logger.error('ERROR: web streaming requires no_display')
             sys.exit(1)
 
-    if not getattr(args, "spacenorm_devicekey_file", None):
-        logger.error("args.spacenorm_devicekey_file must be set")
-        sys.exit(1)
+    config_method = getattr(args, "config_method", "static")
 
-    args_dict = process_spacenorm_devicekey_file(args)
+    if config_method == "dynamic":
+        dynamic_cfg = fetch_dynamic_config(args)
+        if dynamic_cfg is None:
+            logger.error("ERROR: initial dynamic config fetch failed -- cannot start without an initial sensor set")
+            sys.exit(1)
+        cctv_ID.update(dynamic_cfg)
+        args_dict = {key: _build_per_key_args(args, key) for key in dynamic_cfg}
+    else:
+        if not getattr(args, "spacenorm_devicekey_file", None):
+            logger.error("args.spacenorm_devicekey_file must be set")
+            sys.exit(1)
+        args_dict = process_spacenorm_devicekey_file(args)
+
     for key in args_dict:
         spacenorm_key_list.append(key)
     logger.info(f"spacenorm_key_list = {spacenorm_key_list}")
@@ -584,9 +709,17 @@ def detector_YOLO_multithreaded(args):
                 os.makedirs(detected_images_dir, exist_ok=True)
                 detect_csv_path = os.path.join(args.record_detection_result_dir, "detect.csv")
                 with open(detect_csv_path, "w", newline='') as detect_csv:
-                    detect_multithreaded(model, imgsz, args, args_dict, vis, detect_csv)
+                    detect_csv_writer = csv.writer(detect_csv)
+                    detect_csv_writer.writerow(['key', 'time', 'type', 'motion', 'conf', 'image'])
+                    ctx = SimpleNamespace(model=model, imgsz=imgsz, vis=vis, yolo_lock=threading.Lock(),
+                                          detect_csv_writer=detect_csv_writer, detect_csv_writer_lock=threading.Lock())
+                    _start_dynamic_refresh_if_needed(config_method, args, ctx)
+                    detect_multithreaded(ctx, args_dict)
             else:
-                detect_multithreaded(model, imgsz, args, args_dict, vis, detect_csv=None)
+                ctx = SimpleNamespace(model=model, imgsz=imgsz, vis=vis, yolo_lock=threading.Lock(),
+                                      detect_csv_writer=None, detect_csv_writer_lock=None)
+                _start_dynamic_refresh_if_needed(config_method, args, ctx)
+                detect_multithreaded(ctx, args_dict)
         except Exception:
             traceback.print_exc()
             traceback.print_exc(file=error_log)
@@ -625,35 +758,6 @@ def generate():
 def video_feed():
     return Response(generate(), mimetype="multipart/x-mixed-replace; boundary=frame")
 
-
-ACCESS_TOKEN_REFRESH_INTERVAL_HOUR = 5 # access toekn for kakaotalk REST API is valid only for 6 hours
-def refresh_kakao_access_token():
-    while(1):
-
-        print("refresh kakao access token")    
-        logger.info("refresh kakao access token")
-
-        with open(KAKAO_CODE_JSON_FILE,"r") as fp:
-            tokens = json.load(fp)
-
-        refresh_token = tokens['refresh_token']
-        
-        new_tokens = refreshToken(refresh_token)
-
-        assert('access_token' in new_tokens)
-        tokens['access_token'] = new_tokens['access_token']
-
-        if ('refresh_token' in new_tokens):
-            tokens['refresh_token'] = new_tokens['refresh_token']
-
-        with lock_kakao_code:
-            with open(KAKAO_CODE_JSON_FILE,"w") as fp:
-                json.dump(tokens, fp)
-
-        print(f"--> new access token is written to {KAKAO_CODE_JSON_FILE}")
-        logger.info(f"--> new access token is written to {KAKAO_CODE_JSON_FILE}")
-
-        time.sleep(ACCESS_TOKEN_REFRESH_INTERVAL_HOUR * 3600)
 
 # construct cctv_ID from json configuration file to use legacy code
 def init_cctv_data(cfg_filepath):
@@ -709,7 +813,11 @@ def main():
     logger.info("\nLoaded configuration:")
     logger.info(cfg)
 
-    init_cctv_data(cfg.spacenorm_sensor_cfg_file)
+    if getattr(cfg, "config_method", "static") == "static":
+        init_cctv_data(cfg.spacenorm_sensor_cfg_file)
+    else:
+        logger.info(f"cctv_configuration.config_method = 'dynamic' -- skipping static init_cctv_data(); "
+                    f"sensors/CCTVs will be fetched from the vision_nodes API (vision_node_id={cfg.vision_node_id})")
 
     t1 = threading.Thread(name='detector_YOLO_multithreaded', target=detector_YOLO_multithreaded, args=(cfg,))
     t1.daemon = True

@@ -24,6 +24,7 @@ class SpacenormConfigLoader:
     ENV_SENSOR_CFG = "SPACENORM_SENSOR_CFG_FILE" # env var for sensor (e.g. CCTV, environment sensors) config file path
     ENV_LOG_DIR = "SPACENORM_LOG_DIR"
     ENV_RECORD_DETECTION_RESULT_DIR = "SPACENORM_RECORD_DETECTION_RESULT_DIR"
+    ENV_ROI_SNAPSHOT_DIR = "SPACENORM_ROI_SNAPSHOT_DIR" # dir for ROI-overlay snapshots written/renewed in dynamic config method
 
     def __init__(self, fallback_common_cfg: Optional[Union[str, Path]] = None):
         self.fallback_common_cfg = fallback_common_cfg
@@ -211,6 +212,9 @@ class SpacenormConfigLoader:
 
         record_detection_result_dir = os.environ.get(self.ENV_RECORD_DETECTION_RESULT_DIR, "").strip()
         final["record_detection_result_dir"] = record_detection_result_dir if record_detection_result_dir else ""
+
+        roi_snapshot_dir = os.environ.get(self.ENV_ROI_SNAPSHOT_DIR, "").strip()
+        final["roi_snapshot_dir"] = roi_snapshot_dir if roi_snapshot_dir else os.path.join(final["log_dir"] or ".", "roi_snapshots")
 
         for name, default in flat_defaults.items():
             cli_value = getattr(args, name, None)
