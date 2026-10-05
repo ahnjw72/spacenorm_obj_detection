@@ -22,7 +22,14 @@ echo "[2] Copying model files..."
 echo "============================================"
 
 # Dereference the symlink so docker COPY gets the actual file, not a broken link.
-cp -L ./yolo_weights/yolo11x_set01-0150.pt ./yolo11x_cctv.pt
+# yolo11x_cctv.pt / yolo11x_coco.pt already exist here as symlinks; if cp writes
+# through an existing destination symlink it overwrites whatever the symlink
+# points to (verified: GNU cp -L follows an existing dest symlink and clobbers
+# its target in place). yolo11x_cctv.pt currently resolves into the sibling
+# yolov11_training_aws training-results directory, so removing the symlinks
+# first is required to avoid overwriting that file.
+rm -f ./yolo11x_cctv.pt ./yolo11x_coco.pt
+cp -L ./yolo_weights/yolo11x_set01-0151.pt ./yolo11x_cctv.pt
 cp -L ./yolo_weights/yolo11x.pt ./yolo11x_coco.pt
 
 echo "→ Model file copied (dereferenced)"
@@ -40,7 +47,8 @@ DOCKER_IMAGE_NAME_AWS_ECR="159552820182.dkr.ecr.ap-northeast-2.amazonaws.com/$DO
 docker build -f Dockerfile -t $DOCKER_IMAGE_NAME_DOCKER_HUB .
 docker tag $DOCKER_IMAGE_NAME_DOCKER_HUB $DOCKER_IMAGE_NAME_AWS_ECR
 
-rm -f spacenorm_obj_detection_build.pt
+# Remove the dereferenced build-context copies created in step [2] (~114MB each)
+rm -f ./yolo11x_cctv.pt ./yolo11x_coco.pt
 
 echo
 echo "=========================================================="
