@@ -2,7 +2,7 @@
 ========================================================================================
 Docker swarm을 이용한 서비스 런칭
 
-$ ./deploy_service.sh <server_name>
+$ ./deploy_obj_detection.sh <server_name>
 <-- server_name is one of cym, yujin, kumho, kumho_car, asia_ansung, jaeil_robot, etc.
 
 ------

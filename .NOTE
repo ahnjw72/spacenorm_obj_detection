@@ -1,7 +1,10 @@
 
-claude --resume 70c2a8c9-d0fc-4137-a88d-a97d29887f69
-
 =========================================================================================
 New spacenorm_yolo using Ultralytics yolo11 or yolo26
+
+New training is done at ../yolov11_aws_training or 
+at local machine(학교PC: RTX 4080,16GB) using the following CLI:
+
+$ yolo detect train model=~/Work/yolov11_training_aws/training_results/20260826/last.pt data=data/cctv.yaml epochs=100 imgsz=1280 lr0=0.001 lrf=0.01 warmup_epochs=0 batch=2
 ========================================================================================
 

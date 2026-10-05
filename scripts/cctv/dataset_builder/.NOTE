@@ -28,20 +28,27 @@
    (2) INTP_FN 리뷰 및 Submit
    (3) WEAK_FN 리뷰 및 Submit
 
-6. Label Studio의 Submit 결과를 로컬 학습데이터로 promote
+6. Label Studio의 Submit 결과를 로컬 학습데이터(setNNNN)로 promote
    $ export LABEL_STUDIO_API_TOKEN=...   # Personal Access Token, from Account & Settings (.bashrc 에 있음)
    $ python3 $SPCENORM_ROOT/scripts/cctv/dataset_builder/promote_to_trainset.py --ls-project <project번호> \
     --images $SPCENORM_ROOT/data/cctv_train_data_mining/reviewing
    --> $SPCENORM_ROOT/data/cctv_train_data/setNNNN 생성
 
-7. 학습을 위한 파일 생성 
+7. 학습을 위한 부가 파일들 생성 
    (1) $SPACENORM_ROOT/scripts/cctv/make_train_test/make_train_test.py 편집 후 실행
      --> train_01_to_NNNN.txt, test_01_to_NNNN.txt를 $SPCENORM_ROOT/data/cctv_train_data/train_test_txts/ 로 복사
    (2) $SPACENORM_ROOT/data/cctv.yaml 편집 후 AWS S3로 복사
         $ aws s3 cp $SPACENORM_ROOT/data/cctv.yaml s3://spacenorm-cctv-ml-data/spacenorm_yolov7/data/
    
+7-1. 새로 구축된 학습데이터 전체(set01~NNNN)에 대하여, 기존 yolo model의 성능 측정 (precision, recall, map)
+   $ python $SPCENORM_ROOT/scripts/cctv/eval_map/eval_map.py \
+       --gt-list $SPCENORM_ROOT/data/cctv_train_data/train_test_txts/test_01_to_NNNN.txt \
+       --model $SPCENORM_ROOT/docker_build/yolo11x_set01-NNNN_minus_1.pt \
+       --imgsz 1280 \
+       --output report_before.json
+
 8. AWS S3 로 학습데이터 Sync (반드시 속도가 훨씬 빠른 s5cmd 사용)
-   $ s5cmd --numworkers 256 sync --exclude "*inspection*" --exclude "*__pycache__*" --exclude "*.py" --exclude "*.sh" "$SPACENORM_ROOT/data/cctv_train_data/*" s3://spacenorm-cctv-ml-data/spacenorm_yolov7/data/cctv_train_data/
+   $ s5cmd --numworkers 256 sync --exclude "old" --exclude "*inspection*" --exclude "*__pycache__*" --exclude "*.py" --exclude "*.sh" "$SPACENORM_ROOT/data/cctv_train_data/*" s3://spacenorm-cctv-ml-data/spacenorm_yolov7/data/cctv_train_data/
 
 9. AWS EC2 Spot Instance로 yolo training 시작
    $ cd ~/Work/yolov11_training_aws
@@ -62,5 +69,15 @@
 12. AWS S3 checkpoints 에서 best.pt를 로컬로 복사
    $ aws s3 cp s3://spacenorm-cctv-ml-data/yolo_training_aws/checkpoints/best.pt $SPACENORM_ROOT/docker_build/yolo_weights/yolo11x_set01-NNNN.pt
    $ ln -sf $SPACENORM_ROOT/docker_build/yolo_weights/yolo11x_set01-NNNN.pt $SPACENORM_ROOT/docker_build/yolo11x_cctv.pt
+
+12-1. 새로 구축된 학습데이터 전체(set01~NNNN)에 대하여, 새로 학습된 yolo model의 성능 측정 (precision, recall, map)
+   $ python $SPCENORM_ROOT/scripts/cctv/eval_map/eval_map.py \
+       --gt-list $SPCENORM_ROOT/data/cctv_train_data/train_test_txts/test_01_to_NNNN.txt \
+       --model $SPCENORM_ROOT/docker_build/yolo11x_set01-NNNN.pt \
+       --imgsz 1280 \
+       --output report_before.json
+
+13. 학습 전/후 성능 평가
+   report_before.json 과 report_after.json을 비교하여, precision, recall, map의 향상 확인
 =====================================================================================
    

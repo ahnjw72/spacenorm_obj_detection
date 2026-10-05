@@ -32,7 +32,8 @@ Single ground-truth directory:
 python scripts/cctv/eval_map/eval_map.py \
   --gt-path data/cctv_train_data/set0149 \
   --model docker_build/yolo11x_set01-0148.pt \
-  --imgsz 1280
+  --imgsz 1280 \
+  --output report.json
 ```
 
 Multiple directories, glob patterns allowed (each pattern is expanded independently, results deduplicated):
@@ -54,7 +55,8 @@ a fair precision/recall comparison between checkpoints:
 python scripts/cctv/eval_map/eval_map.py \
   --gt-list data/cctv_train_data/train_test_txts/test_01_to_0150.txt \
   --model docker_build/yolo11x_set01-0148.pt \
-  --imgsz 1280
+  --imgsz 1280 \
+  --output report.json
 ```
 
 Make sure the list file actually matches the checkpoint's training-time split (the
