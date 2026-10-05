@@ -802,6 +802,23 @@ class RTSP_Camera():
 
         logger.info(f"[{key}] after joining grab_img thread.")
 
+        # Release the underlying capture object once we're sure grab_img is
+        # not concurrently using it -- either grab_img's own loop-exit
+        # cleanup already released+cleared it, or the thread never started
+        # (e.g. the connection never succeeded enough to reach _start()).
+        # If the join above timed out (thread still alive), skip this: a
+        # concurrent cv2.VideoCapture.release() call would race with the
+        # still-running thread, and cv2.VideoCapture is not thread-safe for
+        # concurrent access. Without this, a camera stuck in a connect-retry
+        # loop (_open() -> release() -> open_rtsp_universal() on every
+        # attempt) leaks one VideoCapture/GStreamer pipeline's file
+        # descriptors per retry, eventually exhausting the process's fd
+        # ulimit on a long-lived, chronically-reconnecting camera.
+        if self.cap is not None and (self.thread is None or not self.thread.is_alive()):
+            logger.info(f"[{key}] Releasing self.cap...")
+            self.cap.release()
+            self.cap = None
+
         self.is_opened = False
         with self.read_lock:
             self.img_handle = None
