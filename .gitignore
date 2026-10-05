@@ -31,6 +31,7 @@
 docker_shared/
 *.swp
 *.tgz
+scripts/cctv/eval_map/eval_logs/
 
 # Holds plaintext NVR credentials. config.example.json is the committed template.
 # Needed explicitly because the `!*.json` rule above re-includes all JSON files.
