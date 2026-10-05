@@ -25,7 +25,6 @@ import json
 import paho.mqtt.client as mqtt
 from pathlib import Path
 from types import SimpleNamespace
-import socket
 
 from flask import Flask, Response
 
@@ -841,18 +840,6 @@ def init_cctv_data(cfg_filepath):
     # exit(0)
 #=======================================================================================================
 
-def get_default_host_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-    except Exception:
-        ip = "127.0.0.1"
-    finally:
-        s.close()
-    return ip
-
-
 def main():
     global spacenorm_key_list, SPACENORM_REPORT_PERIOD_SEC
 
@@ -886,9 +873,17 @@ def main():
     # infrastructure, not a feature flag like the old web_streaming_port.
     # Blocking here keeps the process alive, same role t1.join() used to
     # play in the non-web-streaming case.
-    host_ip = getattr(cfg, "host_ip", None) or get_default_host_ip()
-    logger.info(f"Snapshot server starting on {host_ip}:{SNAPSHOT_PORT}")
-    app.run(host=host_ip, port=SNAPSHOT_PORT, threaded=True, use_reloader=False)
+    #
+    # Binds 0.0.0.0, not a single auto-detected "default route" IP: this
+    # port is reached by OTHER Swarm services (Prometheus/Grafana) over the
+    # overlay network, which is a separate interface/IP from whatever a
+    # UDP-connect-to-8.8.8.8 trick resolves as the "default" route inside a
+    # multi-network container -- binding to one specific interface left the
+    # overlay-network address completely unreachable (confirmed live: bound
+    # to the bridge-network IP, connection refused from the overlay-network
+    # IP Prometheus/Grafana actually use).
+    logger.info(f"Snapshot server starting on 0.0.0.0:{SNAPSHOT_PORT}")
+    app.run(host="0.0.0.0", port=SNAPSHOT_PORT, threaded=True, use_reloader=False)
         
 if __name__ == '__main__':
     main()
