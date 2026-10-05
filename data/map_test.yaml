@@ -1,0 +1,14 @@
+# train and val data as 1) directory: path/images/, 2) file: path/images.txt, or 3) list: [path1/images/, path2/images/]
+# train: data/train_cctv
+# val: data/val_cctv
+path: .
+#train: data/cctv_train_data/train_test_txts/train_01_to_0148.txt
+#val: data/cctv_train_data/train_test_txts/test_01_to_0148.txt
+train: data/cctv_train_data/train_test_txts/train_set01.txt
+val: data/cctv_train_data/train_test_txts/test_set01.txt
+
+# number of classes
+nc: 7 
+
+# class names
+names: ['person', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow']
