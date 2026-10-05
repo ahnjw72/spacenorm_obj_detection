@@ -27,26 +27,31 @@ from pathlib import Path
 from types import SimpleNamespace
 import socket
 
-from flask import Response, request, Flask, render_template
+from flask import Flask, Response
 
 from .utils.yolo_classes import get_cls_dict
 from .utils.cctv_camera import RTSP_Camera
-from .utils.display import show_fps
 from .utils.visualization import BBoxVisualization
 from .utils.spacenorm_api import Spacenorm_API
 from .utils.kakao_messaging import refreshToken, kakaoMsgSend
 
-from .utils.post_processing import remove_outside_ROI, select_car_related_results, filter_only_person, filter_small_objects, check_bb_on_background
+from .utils.post_processing import remove_outside_ROI, select_car_related_results, filter_only_person, filter_small_objects, check_bb_on_background, draw_roi_overlay
 from ultralytics.utils import SETTINGS
 SETTINGS.update({'sync': False})
 
 from .utils.yolo_inference import make_yolo_annotation_file, create_yolo_model, yolo_inference_image, record_detection_result
 from .utils.config_loader import SpacenormConfigLoader
 from .utils.dynamic_config import fetch_dynamic_config, diff_configs, requires_thread_restart, save_and_upload_snapshot
-
-from prometheus_client import Gauge
+from .utils.metrics import (
+    start_metrics_server, detector_threads_active, detector_threads_expected,
+    camera_connected, camera_last_frame_timestamp, detections_total, mqtt_connected,
+    set_camera_info, remove_camera_metrics,
+)
 
 import urllib.parse
+
+METRICS_PORT = 9000
+SNAPSHOT_PORT = 8081
 
 cctv_ID = {}
 RTSP_Camera_dict = {}
@@ -55,25 +60,68 @@ RTSP_Camera_dict = {}
 detector_registry = {}
 registry_lock = threading.Lock()
 
-outputFrame = None
-lock = threading.Lock()
+# key -> (boxes, confs, clss, types, motionesses, timestamp), updated once per
+# detector_per_cam() loop iteration. Backs the on-demand /snapshot/<camera>
+# endpoint so it can draw the most recently computed detection boxes without
+# re-running inference per HTTP request.
+latest_detection_result = {}
+latest_detection_result_lock = threading.Lock()
+
+# Set once in detector_YOLO_multithreaded(); read by the /snapshot/<camera>
+# route to draw bounding boxes the same way detector_per_cam() does.
+vis_global = None
 
 lock_kakao_code = threading.Lock()
 
-selected_key = None
-cctv_space_name = None
+SOURCE_CODE_URL = "https://github.com/ahnjw72/spacenorm_obj_detection"
 
-# initialize a flask object
+# Minimal Flask app -- just the on-demand snapshot endpoint (§4 of
+# docs/prometheus_grafana_monitoring_plan.md). No templating, no MJPEG
+# streaming, no selected-camera state; replaces the old video-streaming UI
+# that used to live on this same port.
 app = Flask(__name__)
 app.secret_key = 'abcde'
-
-SOURCE_CODE_URL = "https://github.com/ahnjw72/spacenorm_obj_detection"
 
 @app.after_request
 def add_source_code_header(response):
     """AGPL-3.0 compliance: expose source code URL to all HTTP responses."""
     response.headers["X-Source-Code"] = SOURCE_CODE_URL
     return response
+
+
+@app.route("/snapshot/<path:camera>")
+def snapshot(camera):
+    """On-demand snapshot: freshest raw frame + ROI overlay + most recently
+    computed detection boxes, composited and returned directly -- no disk
+    write, no background writer thread. Capture only happens when this route
+    is actually hit (Grafana dashboard load / manual refresh), never on a
+    fixed interval. See docs/prometheus_grafana_monitoring_plan.md §4.
+    """
+    cam = RTSP_Camera_dict.get(camera)
+    if cam is None:
+        return Response(f"unknown camera: {camera}", status=404)
+
+    img = cam.read()
+    if img is None:
+        return Response(f"no frame currently available for: {camera}", status=503)
+
+    with latest_detection_result_lock:
+        cached = latest_detection_result.get(camera)
+
+    if cached is not None and vis_global is not None:
+        boxes, confs, clss, types, motionesses, _ts = cached
+        img = vis_global.draw_bboxes(img, boxes, confs, clss, types, motionesses)
+
+    roi = cctv_ID.get(camera, {}).get('ROI')
+    if roi:
+        img = draw_roi_overlay(img, roi)
+
+    ok, encoded = cv2.imencode('.jpg', img)
+    if not ok:
+        return Response("failed to encode snapshot", status=500)
+
+    return Response(encoded.tobytes(), mimetype='image/jpeg')
+
 
 PKG_NAME = Path(__file__).parent.name
 
@@ -179,9 +227,6 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
     it is set, so the thread can be stopped when its sensor is removed from
     the dynamic configuration. None (static method) means run forever, as before.
     """
-    # grab global references to the output frame, and lock variables
-    global outputFrame, lock, selected_key
-
     assert(key == args.spacenorm_device_key)
     assert(vis)
 
@@ -216,6 +261,7 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
     mqtt_broker_addr = None
     mqtt_broker_port = None
     mqtt_client = None
+    mqtt_connected.labels(camera=key).set(0)
     if 'mqtt_broker_addr' in cctv_ID[key] and 'mqtt_broker_port' in cctv_ID[key]:
         # Initialize mqtt client
         mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
@@ -229,6 +275,7 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
             mqtt_client.connect(mqtt_broker_addr, int(mqtt_broker_port))
             mqtt_client.subscribe(mqtt_topic)
             mqtt_client.loop_start()
+            mqtt_connected.labels(camera=key).set(1)
             logger.info(f"[{key}] MQTT client connected to {mqtt_broker_addr}:{mqtt_broker_port} and subscribed to {mqtt_topic}")
 
     while not cam.isOpened(): # When the RTSP is not opened yet, we try to open here before entering the main detection loop below.
@@ -247,9 +294,13 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
         img = cam.read()
 
         if img is None:
+            camera_connected.labels(camera=key).set(0)
             logger.error(f"[{key}] cam.read() to return None --> retry to read() after short sleep")
             time.sleep(1.0)  # Short sleep before retrying
             continue
+
+        camera_connected.labels(camera=key).set(1)
+        camera_last_frame_timestamp.labels(camera=key).set(time.time())
 
         (H, W) = img.shape[:2]
 
@@ -334,6 +385,8 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
             if num_detected_boxes == 0:
                 consecutive_frame_with_persons = 0
 
+            detections_total.labels(camera=key).inc()
+
             if not prevent_report:
                 
                 # If MQTT is enabled, publish the number of detected boxes to the MQTT broker
@@ -398,12 +451,11 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
             frame_idx = (frame_idx + 1) % args.max_images_in_output
         # --------------------------------------------------------------------------------------
 
-        if args.web_streaming_port and selected_key == key:
-            assert(vis is not None)
-            img = vis.draw_bboxes(img, boxes, confs, clss, types, motionesses)
-            img = show_fps(img, fps, key)
-            with lock:
-                outputFrame = img.copy()
+        # Cache the latest computed detection result so the on-demand
+        # /snapshot/<camera> endpoint (§4) can composite it onto a fresh
+        # cam.read() frame per-request, without re-running inference.
+        with latest_detection_result_lock:
+            latest_detection_result[key] = (boxes, confs, clss, types, motionesses, tic)
 
         toc = time.time()
         tic_toc = toc-tic
@@ -473,6 +525,27 @@ def rtsp_read_watchdog(cameras, hang_sec=20):
                     cam.read_hang_reported = False
         time.sleep(2)
 
+def _publish_camera_info(key, entry, config_method):
+    """Update the spacenorm_camera_info metric for one cctv_ID entry.
+
+    Shared by init_cctv_data() (static), the initial dynamic-mode fetch in
+    detector_YOLO_multithreaded(), and dynamic_config_refresh_loop()'s
+    added/changed handling, so both config methods populate the same metric
+    with no special-casing.
+    """
+    set_camera_info(
+        camera=key,
+        device_id=entry.get('device_id'),
+        company_name=entry.get('company_name', ''),
+        config_method=config_method,
+        monitor_id=entry.get('monitor_id', ''),
+        mqtt_broker_addr=entry.get('mqtt_broker_addr', ''),
+        mqtt_broker_port=entry.get('mqtt_broker_port', ''),
+        min_obj_size_ratio=entry.get('min_obj_size_ratio', ''),
+        has_roi='ROI' in entry,
+    )
+
+
 def _build_per_key_args(args, key):
     """Return a per-key copy of `args` with spacenorm_device_key set to `key`.
 
@@ -531,6 +604,10 @@ def _remove_detector(key, timeout=15.0):
     if entry['thread'].is_alive():
         logger.warning(f"[{key}] detector_per_cam thread did not stop within {timeout}s.")
 
+    with latest_detection_result_lock:
+        latest_detection_result.pop(key, None)
+    remove_camera_metrics(key)
+
     logger.info(f"[{key}] detector removed.")
 
 
@@ -564,12 +641,14 @@ def dynamic_config_refresh_loop(cfg, ctx):
         for key in added:
             logger.info(f"[{key}] added to dynamic config -- starting detector")
             cctv_ID[key] = new_cfg[key]
+            _publish_camera_info(key, new_cfg[key], "dynamic")
             _spawn_detector(key, _build_per_key_args(cfg, key), ctx)
 
         for key in changed:
             old_entry = old_cfg[key]
             new_entry = new_cfg[key]
             cctv_ID[key] = new_entry
+            _publish_camera_info(key, new_entry, "dynamic")
 
             if requires_thread_restart(old_entry, new_entry) and key in RTSP_Camera_dict:
                 logger.info(f"[{key}] uri/mqtt broker changed -- restarting detector thread")
@@ -582,6 +661,10 @@ def dynamic_config_refresh_loop(cfg, ctx):
             cam = RTSP_Camera_dict.get(key)
             if cam is not None and cam.isOpened():
                 save_and_upload_snapshot(key, cam, cctv_ID[key], cfg.roi_snapshot_dir)
+
+        with registry_lock:
+            detector_threads_active.set(len(detector_registry))
+        detector_threads_expected.set(len(cctv_ID))
 
         time.sleep(max(cfg.config_renew_period, 1) * 60)
 
@@ -625,12 +708,6 @@ def detect_multithreaded(ctx, args_dict):
     watchdog_thread.start()
     logger.info(f"   rtsp_read_watchdog thread started..")
 
-
-    thread_count_metric = Gauge('thread_count', 'Number of threads running')
-
-    # process_name = args.cfg.split('/')[-1].split('.')[0] + '_재실감지' # ex: "cym_재실감지"
-    # process_name = args.process_name
-
     while True:
         time.sleep(120) # sleep for 120 seconds before checking thread status
         logger.info('='*20+' thread info '+'='*20)
@@ -654,8 +731,8 @@ def detect_multithreaded(ctx, args_dict):
             logger.warning(f"Number of grab_img threads ({grab_img_thread_count}) is different from number of keys ({num_keys})!!")
 
         logger.info("="*53)
-        # thread_count_metric.labels(process=process_name).set(thread_count)
-        thread_count_metric.set(thread_count)
+        detector_threads_active.set(num_keys)
+        detector_threads_expected.set(len(cctv_ID))
 
 def detector_YOLO_multithreaded(args):
     logger.info("detector_YOLO_multithreaded()...")
@@ -667,11 +744,6 @@ def detector_YOLO_multithreaded(args):
         logger.error('ERROR: file (%s) not found!' % args.model)
         sys.exit(1)
 
-    if getattr(args, "web_streaming_port", None):
-        if not args.no_display:
-            logger.error('ERROR: web streaming requires no_display')
-            sys.exit(1)
-
     config_method = getattr(args, "config_method", "static")
 
     if config_method == "dynamic":
@@ -680,6 +752,8 @@ def detector_YOLO_multithreaded(args):
             logger.error("ERROR: initial dynamic config fetch failed -- cannot start without an initial sensor set")
             sys.exit(1)
         cctv_ID.update(dynamic_cfg)
+        for key, entry in dynamic_cfg.items():
+            _publish_camera_info(key, entry, "dynamic")
         args_dict = {key: _build_per_key_args(args, key) for key in dynamic_cfg}
     else:
         if not getattr(args, "spacenorm_devicekey_file", None):
@@ -699,6 +773,8 @@ def detector_YOLO_multithreaded(args):
     imgsz = args.img_size
 
     vis = BBoxVisualization(cls_dict)
+    global vis_global
+    vis_global = vis
 
     with open(os.path.join(args.log_dir, "traceback.log"), "w") as error_log:
         try:
@@ -725,40 +801,6 @@ def detector_YOLO_multithreaded(args):
             traceback.print_exc(file=error_log)
 
 
-@app.route("/", methods=["GET"])
-def index():
-    global outputFrame, selected_key, lock
-
-    with lock:
-        outputFrame = None
-    selected_key = request.args.get('cctv_key')
-    logger.info(f"index(): selected_key = {selected_key}")
-
-    return render_template("index.html", keys=spacenorm_key_list,
-        where_str=cctv_space_name, when_str=None)
-
-
-def generate():
-    global outputFrame, lock
-
-    while True:
-        with lock:
-            if outputFrame is None:
-                continue
-            (flag, encodedImage) = cv2.imencode(".jpg", outputFrame)
-            if not flag:
-                continue
-
-        yield(b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' +
-            bytearray(encodedImage) + b'\r\n')
-        time.sleep(SPACENORM_REPORT_PERIOD_SEC)
-
-
-@app.route("/video_feed")
-def video_feed():
-    return Response(generate(), mimetype="multipart/x-mixed-replace; boundary=frame")
-
-
 # construct cctv_ID from json configuration file to use legacy code
 def init_cctv_data(cfg_filepath):
     global cctv_ID
@@ -767,17 +809,18 @@ def init_cctv_data(cfg_filepath):
         companies_cfg = json.load(fp)
 
         # companies_cfg['companies'] is a list of dictionaries
-        # company is a dictionary with keys "company_name", "gateway_id", "access_token", "refresh_token", "CCTV".
-        for company in companies_cfg['companies']: 
+        # company is a dictionary with keys "company_name", "access_token", "refresh_token", "CCTV".
+        for company in companies_cfg['companies']:
             company_name = company['company_name']
             access_token = company['access_token']
             refresh_token = company['refresh_token']
-            
+
             for cctv in company['CCTV']:
                 logger.debug(cctv)
                 cctv_key = company_name + '_' + cctv # ex of cctv_key : "정양산업_B1F_food1"
                 cctv_ID[cctv_key] = {} #{'device_id': None, 'uri': None, 'monitor_id': None, 'access_token': None, 'refresh_token': None, 'ROI': None, 'min_obj_size_ratio': None, 'mqtt_broker_addr': None, 'mqtt_broker_port': None}
                 cctv_ID[cctv_key]['device_id'] = company['CCTV'][cctv]['device_id']
+                cctv_ID[cctv_key]['company_name'] = company_name # needed for the spacenorm_camera_info metric
                 cctv_ID[cctv_key]['uri'] = company['CCTV'][cctv]['uri']
                 cctv_ID[cctv_key]['monitor_id'] = company['CCTV'][cctv]['monitor_id'] # FIXME: monitor_id가 없는 경우의 처리 필요
                 cctv_ID[cctv_key]['access_token'] = access_token
@@ -792,9 +835,23 @@ def init_cctv_data(cfg_filepath):
                 if 'mqtt_broker_port' in company['CCTV'][cctv]:
                     cctv_ID[cctv_key]['mqtt_broker_port'] = company['CCTV'][cctv]['mqtt_broker_port']
 
+                _publish_camera_info(cctv_key, cctv_ID[cctv_key], "static")
+
     # print(cctv_ID)
     # exit(0)
 #=======================================================================================================
+
+def get_default_host_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = "127.0.0.1"
+    finally:
+        s.close()
+    return ip
+
 
 def main():
     global spacenorm_key_list, SPACENORM_REPORT_PERIOD_SEC
@@ -813,6 +870,8 @@ def main():
     logger.info("\nLoaded configuration:")
     logger.info(cfg)
 
+    start_metrics_server(METRICS_PORT)
+
     if getattr(cfg, "config_method", "static") == "static":
         init_cctv_data(cfg.spacenorm_sensor_cfg_file)
     else:
@@ -823,24 +882,13 @@ def main():
     t1.daemon = True
     t1.start()
 
-    port_number = getattr(cfg, "web_streaming_port", None)
-    if port_number is not None:
-        def get_default_host_ip():
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            try:
-                s.connect(("8.8.8.8", 80))
-                ip = s.getsockname()[0]
-            except Exception:
-                ip = "127.0.0.1"
-            finally:
-                s.close()
-            return ip
-
-        host_ip = getattr(cfg, "host_ip", None) or get_default_host_ip()
-        logger.info(f"Web streaming host IP: {host_ip}")
-        app.run(host=host_ip, port=port_number, debug=True, threaded=True, use_reloader=False)
-
-    t1.join()
+    # The on-demand snapshot server (§4) always runs now -- it's fixed
+    # infrastructure, not a feature flag like the old web_streaming_port.
+    # Blocking here keeps the process alive, same role t1.join() used to
+    # play in the non-web-streaming case.
+    host_ip = getattr(cfg, "host_ip", None) or get_default_host_ip()
+    logger.info(f"Snapshot server starting on {host_ip}:{SNAPSHOT_PORT}")
+    app.run(host=host_ip, port=SNAPSHOT_PORT, threaded=True, use_reloader=False)
         
 if __name__ == '__main__':
     main()

@@ -1,0 +1,80 @@
+{
+  "uid": "spacenorm-fleet-overview",
+  "title": "spacenorm_obj_detection / Fleet Overview",
+  "tags": ["spacenorm_obj_detection"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Up / down per site",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "up{job=\"spacenorm_obj_detection\"}", "legendFormat": "{{instance}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+          ]
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Active vs. expected detector threads",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "spacenorm_detector_threads_active{job=\"spacenorm_obj_detection\"}", "legendFormat": "{{instance}} active" },
+        { "expr": "spacenorm_detector_threads_expected{job=\"spacenorm_obj_detection\"}", "legendFormat": "{{instance}} expected" }
+      ],
+      "description": "A sustained gap between active and expected is the direct, dashboard-visible version of the 2-cameras-stuck-reconnecting pattern on jaeil_cr's second NVR unit."
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Open file descriptors",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "process_open_fds{job=\"spacenorm_obj_detection\"}", "legendFormat": "{{instance}}" }
+      ],
+      "description": "This is the metric that would have shown the jaeil_cr fd-leak climbing for hours before the SIGSEGV/GLib-abort crash. A steadily climbing, non-resetting trend on any one site is the thing to act on before it crashes."
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Container restarts (per site, over dashboard range)",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 11 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "changes(container_start_time_seconds{name=~\"spacenorm_obj_detection.*\"}[$__range])",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "description": "Sourced from cAdvisor's container_start_time_seconds via changes() -- a new start time after a crash/restart counts as a change. cAdvisor's container name label format may need adjusting to match what a live deployment actually reports; verify against real scrape output before relying on this panel."
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Dynamic-config freshness (seconds since last successful fetch)",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 11 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "time() - spacenorm_dynamic_config_last_fetch_timestamp{job=\"spacenorm_obj_detection\"}",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "description": "Dynamic method only -- the direct, dashboard-visible answer to \"is config_renew_period actually firing\". No data for static-method sites is expected, not a gap."
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# Grafana datasource provisioning -- checked into git per the
+# dashboards-as-code decision in docs/prometheus_grafana_monitoring_plan.md §5.
+# Loaded automatically at container startup; a full Grafana volume wipe
+# re-creates this datasource with zero manual reconfiguration.
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

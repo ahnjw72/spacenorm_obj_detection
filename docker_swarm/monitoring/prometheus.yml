@@ -1,0 +1,40 @@
+# Prometheus scrape config for the spacenorm_obj_detection fleet.
+# See docs/prometheus_grafana_monitoring_plan.md for the full rationale.
+#
+# Targets the per-site services by their plain Swarm service name -- each
+# spacenorm_obj_detection_<site> service has exactly one replica (global
+# mode, constrained to one node per site by placement), so the VIP a plain
+# service-name DNS lookup resolves to always routes to that single real
+# task; no tasks.<service> indirection needed here.
+#
+# cadvisor/node-exporter are genuinely multi-node (global mode, one per
+# node), so they DO need tasks.<service> DNS service discovery to surface
+# every node's instance instead of being hidden behind one VIP.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'spacenorm_obj_detection'
+    static_configs:
+      - targets:
+          - 'spacenorm_obj_detection_cym:9000'
+          - 'spacenorm_obj_detection_jaeil_cr:9000'
+          - 'spacenorm_obj_detection_jaeil_io:9000'
+          - 'spacenorm_obj_detection_kumho:9000'
+          - 'spacenorm_obj_detection_kumho_car:9000'
+        labels:
+          group: 'spacenorm_obj_detection'
+
+  - job_name: 'cadvisor'
+    dns_sd_configs:
+      - names: ['tasks.cadvisor']
+        type: 'A'
+        port: 8080
+
+  - job_name: 'node-exporter'
+    dns_sd_configs:
+      - names: ['tasks.node-exporter']
+        type: 'A'
+        port: 9100

@@ -1,0 +1,103 @@
+{
+  "uid": "spacenorm-per-camera",
+  "title": "spacenorm_obj_detection / Per-Camera",
+  "tags": ["spacenorm_obj_detection"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "camera",
+        "type": "query",
+        "label": "Camera",
+        "datasource": { "type": "prometheus", "uid": "Prometheus" },
+        "query": "label_values(spacenorm_camera_info, camera)",
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false,
+        "sort": 1
+      },
+      {
+        "name": "instance",
+        "type": "query",
+        "label": "Site host (derived, hidden)",
+        "hide": 2,
+        "datasource": { "type": "prometheus", "uid": "Prometheus" },
+        "query": "label_values(spacenorm_camera_info{camera=\"$camera\"}, instance)",
+        "regex": "/^(.*):\\d+$/",
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Live snapshot -- $camera",
+      "gridPos": { "h": 12, "w": 12, "x": 0, "y": 0 },
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"text-align:center\"><img src=\"http://$instance:8081/snapshot/${camera:percentencode}\" style=\"max-width:100%;max-height:100%\" alt=\"snapshot unavailable\"/></div>"
+      },
+      "description": "Captured on request, not continuously -- bytes are only (re-)fetched on dashboard load and when you click Grafana's refresh button (dashboard auto-refresh is intentionally left off). See docs/prometheus_grafana_monitoring_plan.md §4."
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Reconnect attempts (rate, 5m)",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "rate(spacenorm_camera_reconnect_attempts_total{camera=\"$camera\"}[5m])",
+          "legendFormat": "{{camera}}"
+        }
+      ],
+      "description": "A fast-climbing rate here is the early-warning signal that was missing before the jaeil_cr fd-leak crash."
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Last-frame age (seconds)",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "time() - spacenorm_camera_last_frame_timestamp{camera=\"$camera\"}",
+          "legendFormat": "{{camera}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 30 },
+              { "color": "red", "value": 120 }
+            ]
+          }
+        }
+      },
+      "description": "A rising, non-resetting age means this camera stopped producing frames -- a stronger staleness signal than 'thread alive'."
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Detection events (rate, 5m)",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "rate(spacenorm_detections_total{camera=\"$camera\"}[5m])",
+          "legendFormat": "{{camera}}"
+        }
+      ]
+    }
+  ]
+}

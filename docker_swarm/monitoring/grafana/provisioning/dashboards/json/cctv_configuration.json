@@ -1,0 +1,72 @@
+{
+  "uid": "spacenorm-cctv-config",
+  "title": "spacenorm_obj_detection / CCTV Configuration",
+  "tags": ["spacenorm_obj_detection"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": { "from": "now-5m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "CCTV configuration -- all sites, both static and dynamic method",
+      "gridPos": { "h": 20, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "spacenorm_camera_info",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "__name__": true,
+              "instance": true,
+              "job": true
+            },
+            "indexByName": {
+              "camera": 0,
+              "company_name": 1,
+              "config_method": 2,
+              "device_id": 3,
+              "monitor_id": 4,
+              "mqtt_broker_addr": 5,
+              "mqtt_broker_port": 6,
+              "min_obj_size_ratio": 7,
+              "has_roi": 8
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "camera" },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open per-camera dashboard",
+                    "url": "/d/spacenorm-per-camera?var-camera=${__data.fields.camera}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "description": "Backed by the spacenorm_camera_info Prometheus info-metric -- one metric covers both static and dynamic config method, since both populate the same cctv_ID dict at runtime. Credentials and raw RTSP URIs are deliberately never in this metric (see docs/prometheus_grafana_monitoring_plan.md §2). Click a camera to open its per-camera dashboard (reconnect rate, last-frame age, detection history, live snapshot)."
+    }
+  ]
+}

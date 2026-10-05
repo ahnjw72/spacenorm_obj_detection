@@ -9,6 +9,7 @@ remove_outside_ROI(), report_via_mqtt()) is reused unchanged.
 import os
 import json
 import logging
+import time
 import urllib.parse
 
 import cv2
@@ -16,6 +17,7 @@ import requests
 
 from .vision_node_api import VisionNodeAPI
 from .post_processing import draw_roi_overlay
+from .metrics import dynamic_config_last_fetch_timestamp, dynamic_config_sensors_active
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +70,7 @@ def build_cctv_entry(company_name, sensor, cctv, access_token):
 
     entry = {
         'device_id': sensor['device_id'],
+        'company_name': company_name, # needed for the spacenorm_camera_info metric
         'uri': inject_rtsp_credentials(cctv['private_url']),
         'access_token': access_token,
         'refresh_token': None, # unused by Gateway.__init__ -- see utils/gateway_api.py
@@ -136,6 +139,8 @@ def fetch_dynamic_config(cfg):
             key, entry = build_cctv_entry(company_name, sensor, cctv, cfg.access_token)
             result[key] = entry
 
+        dynamic_config_last_fetch_timestamp.set(time.time())
+        dynamic_config_sensors_active.set(len(result))
         return result
     except (KeyError, TypeError, ValueError) as e:
         logger.error(f"Failed to parse vision_nodes sync_data response: {e}")
