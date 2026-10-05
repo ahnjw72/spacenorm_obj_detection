@@ -235,8 +235,8 @@ COPY spacenorm_obj_detection /app/spacenorm_obj_detection
 
 # Model weights — update the filename below to match your actual YOLOv11 .pt file
 # and update docker_build.sh to copy the file into the build context first.
-COPY yolo11x_set01-0148.pt /app/spacenorm_obj_detection
-COPY yolo11x.pt /app/spacenorm_obj_detection
+COPY yolo11x_cctv.pt /app/spacenorm_obj_detection
+COPY yolo11x_coco.pt /app/spacenorm_obj_detection
 
 RUN mkdir -p /app/spacenorm_obj_detection/temp
 
