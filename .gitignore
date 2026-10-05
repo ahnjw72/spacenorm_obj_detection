@@ -25,6 +25,7 @@
 *.cfg
 *.log.*
 *.old
+*.backup
 *deprecated/
 !setup.cfg
 !cfg/yolov3*.cfg
@@ -32,6 +33,14 @@ docker_shared/
 *.swp
 *.tgz
 scripts/cctv/eval_map/eval_logs/
+.claude/
+.claudeignore
+.github/
+.git_hooks/
+.mcp.json
+.worktreeinclude
+.moai/
+
 
 # Holds plaintext NVR credentials. config.example.json is the committed template.
 # Needed explicitly because the `!*.json` rule above re-includes all JSON files.
