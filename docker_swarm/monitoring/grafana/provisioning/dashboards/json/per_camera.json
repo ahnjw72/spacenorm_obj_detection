@@ -13,7 +13,7 @@
         "name": "camera",
         "type": "query",
         "label": "Camera",
-        "datasource": { "type": "prometheus", "uid": "Prometheus" },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
         "query": "label_values(spacenorm_camera_info, camera)",
         "refresh": 2,
         "includeAll": false,
@@ -25,7 +25,7 @@
         "type": "query",
         "label": "Site host (derived, hidden)",
         "hide": 2,
-        "datasource": { "type": "prometheus", "uid": "Prometheus" },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
         "query": "label_values(spacenorm_camera_info{camera=\"$camera\"}, instance)",
         "regex": "/^(.*):\\d+$/",
         "refresh": 2,
@@ -42,16 +42,16 @@
       "gridPos": { "h": 12, "w": 12, "x": 0, "y": 0 },
       "options": {
         "mode": "html",
-        "content": "<div style=\"text-align:center\"><img src=\"http://$instance:8081/snapshot/${camera:percentencode}\" style=\"max-width:100%;max-height:100%\" alt=\"snapshot unavailable\"/></div>"
+        "content": "<div style=\"text-align:center\"><img src=\"/snapshot/$instance/${camera:percentencode}?t=${__to}\" style=\"max-width:100%;max-height:100%\" alt=\"snapshot unavailable\"/></div>"
       },
-      "description": "Captured on request, not continuously -- bytes are only (re-)fetched on dashboard load and when you click Grafana's refresh button (dashboard auto-refresh is intentionally left off). See docs/prometheus_grafana_monitoring_plan.md §4."
+      "description": "Captured on request, not continuously -- bytes are only (re-)fetched on dashboard load and when you click Grafana's refresh button (dashboard auto-refresh is intentionally left off). The ?t=${__to} query param is a cache-buster, not a real parameter the backend reads -- without it the <img> src string never changes between refreshes, so neither Grafana's panel re-render nor the browser would have any reason to issue a new request at all (a stale image would keep displaying with no error, since this is independent of HTTP cache headers). ${__to} is Grafana's built-in time-range-end variable, which updates on every manual refresh and page load. Routed through the nginx gateway (same origin as this dashboard page, not a direct Swarm-internal hostname -- a browser can't resolve those). See docs/prometheus_grafana_monitoring_plan.md §4."
     },
     {
       "id": 2,
       "type": "timeseries",
       "title": "Reconnect attempts (rate, 5m)",
       "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "expr": "rate(spacenorm_camera_reconnect_attempts_total{camera=\"$camera\"}[5m])",
@@ -65,7 +65,7 @@
       "type": "timeseries",
       "title": "Last-frame age (seconds)",
       "gridPos": { "h": 6, "w": 12, "x": 12, "y": 6 },
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "expr": "time() - spacenorm_camera_last_frame_timestamp{camera=\"$camera\"}",
@@ -91,7 +91,7 @@
       "type": "timeseries",
       "title": "Detection events (rate, 5m)",
       "gridPos": { "h": 6, "w": 24, "x": 0, "y": 12 },
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "expr": "rate(spacenorm_detections_total{camera=\"$camera\"}[5m])",

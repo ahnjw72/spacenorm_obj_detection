@@ -13,7 +13,7 @@
       "type": "stat",
       "title": "Up / down per site",
       "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         { "expr": "up{job=\"spacenorm_obj_detection\"}", "legendFormat": "{{instance}}" }
       ],
@@ -30,7 +30,7 @@
       "type": "timeseries",
       "title": "Active vs. expected detector threads",
       "gridPos": { "h": 7, "w": 12, "x": 0, "y": 4 },
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         { "expr": "spacenorm_detector_threads_active{job=\"spacenorm_obj_detection\"}", "legendFormat": "{{instance}} active" },
         { "expr": "spacenorm_detector_threads_expected{job=\"spacenorm_obj_detection\"}", "legendFormat": "{{instance}} expected" }
@@ -42,7 +42,7 @@
       "type": "timeseries",
       "title": "Open file descriptors",
       "gridPos": { "h": 7, "w": 12, "x": 12, "y": 4 },
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         { "expr": "process_open_fds{job=\"spacenorm_obj_detection\"}", "legendFormat": "{{instance}}" }
       ],
@@ -53,7 +53,7 @@
       "type": "timeseries",
       "title": "Container restarts (per site, over dashboard range)",
       "gridPos": { "h": 7, "w": 12, "x": 0, "y": 11 },
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "expr": "changes(container_start_time_seconds{name=~\"spacenorm_obj_detection.*\"}[$__range])",
@@ -67,7 +67,7 @@
       "type": "timeseries",
       "title": "Dynamic-config freshness (seconds since last successful fetch)",
       "gridPos": { "h": 7, "w": 12, "x": 12, "y": 11 },
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "expr": "time() - spacenorm_dynamic_config_last_fetch_timestamp{job=\"spacenorm_obj_detection\"}",

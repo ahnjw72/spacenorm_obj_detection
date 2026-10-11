@@ -13,7 +13,7 @@
       "type": "table",
       "title": "CCTV configuration -- all sites, both static and dynamic method",
       "gridPos": { "h": 20, "w": 24, "x": 0, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "expr": "spacenorm_camera_info",
