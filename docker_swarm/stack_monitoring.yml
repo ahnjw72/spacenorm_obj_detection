@@ -1,0 +1,262 @@
+version: "3.8"
+
+# Prometheus + Grafana + cAdvisor + node-exporter fleet monitoring stack.
+# See docs/prometheus_grafana_monitoring_plan.md for full rationale; this
+# file implements §3 (deployment) and the resolved decisions in §5
+# (persistence, placement, auth).
+#
+# One-time setup before first deploy:
+#   1. Create the external overlay network reference target -- no action
+#      needed, spacenorm_obj_detection_default already exists (created by
+#      the spacenorm_obj_detection stack).
+#   2. Create the Grafana admin password secret:
+#        printf '%s' '<a real password>' | docker secret create grafana_admin_password -
+#   3. Ensure the bind-mount source directories exist on the manager node
+#      (ahnjw-GTEC-Ubuntu) -- Swarm does not reliably auto-create missing
+#      bind sources (same lesson as /var/lib/spacenorm_obj_detection):
+#        sudo mkdir -p /var/lib/spacenorm_monitoring/prometheus /var/lib/spacenorm_monitoring/grafana
+#   4. docker stack deploy --with-registry-auth -c docker_swarm/stack_monitoring.yml spacenorm_monitoring
+#
+# Access model: the `gateway` service (nginx) is the ONLY published port in
+# this stack. It reverse-proxies "/" to Grafana and "/snapshot/<site>/*" to
+# each site's internal :8081 -- Grafana itself has no published port at all.
+# This exists because a Grafana Text panel's <img src> is fetched by the
+# BROWSER, which cannot resolve Swarm-internal service names (confirmed
+# live: the per-camera dashboard's snapshot panel came back empty until this
+# was added). Routing both through one origin also means the snapshot image
+# URL in the dashboard JSON is a plain relative path, not a hardcoded host.
+#
+# This is still plain HTTP end-to-end. The published port is for convenience
+# during this feature's testing; before routine multi-person access, add TLS
+# in front of `gateway` (or put a TLS-terminating proxy ahead of it) --
+# Grafana's admin login and live camera imagery both travel in cleartext
+# otherwise. See docs/prometheus_grafana_monitoring_plan.md §5.
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=60d"
+
+    configs:
+      - source: prometheus_cfg
+        target: /etc/prometheus/prometheus.yml
+        mode: 0444
+
+    volumes:
+      - type: bind
+        source: /var/lib/spacenorm_monitoring/prometheus
+        target: /prometheus
+
+    networks:
+      - monitoring
+      - spacenorm_obj_detection_default
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == ahnjw-GTEC-Ubuntu
+      restart_policy:
+        condition: any
+        delay: 5s
+
+  grafana:
+    image: grafana/grafana:11.2.0
+
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+
+    secrets:
+      - grafana_admin_password
+
+    configs:
+      - source: grafana_datasource_cfg
+        target: /etc/grafana/provisioning/datasources/prometheus.yml
+        mode: 0444
+      - source: grafana_dashboard_provider_cfg
+        target: /etc/grafana/provisioning/dashboards/dashboards.yml
+        mode: 0444
+      - source: grafana_dashboard_fleet
+        target: /etc/grafana/provisioning/dashboards/json/fleet_overview.json
+        mode: 0444
+      - source: grafana_dashboard_per_camera
+        target: /etc/grafana/provisioning/dashboards/json/per_camera.json
+        mode: 0444
+      - source: grafana_dashboard_cctv_config
+        target: /etc/grafana/provisioning/dashboards/json/cctv_configuration.json
+        mode: 0444
+
+    volumes:
+      - type: bind
+        source: /var/lib/spacenorm_monitoring/grafana
+        target: /var/lib/grafana
+
+    networks:
+      - monitoring
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == ahnjw-GTEC-Ubuntu
+      restart_policy:
+        condition: any
+        delay: 5s
+
+  # The single published entry point for the whole stack -- see the header
+  # comment above. Needs both networks: `monitoring` to reach Grafana,
+  # `spacenorm_obj_detection_default` to reach each site's :8081 snapshot
+  # endpoint by Swarm DNS.
+  gateway:
+    image: nginx:1.27-alpine
+
+    configs:
+      - source: gateway_nginx_cfg
+        target: /etc/nginx/conf.d/default.conf
+        mode: 0444
+
+    ports:
+      - target: 8090
+        published: 8090
+        protocol: tcp
+        mode: host
+        # Swarm's `mode: host` port publishing does NOT support an
+        # interface-specific host_ip (tried it -- `docker stack config`
+        # rejects it outright: "Additional property host_ip is not
+        # allowed"). VPN-only reachability is therefore enforced at the
+        # host firewall instead, not here. See the UFW rule noted in the
+        # header comment above.
+
+    networks:
+      - monitoring
+      - spacenorm_obj_detection_default
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == ahnjw-GTEC-Ubuntu
+      restart_policy:
+        condition: any
+        delay: 5s
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+
+    volumes:
+      - type: bind
+        source: /
+        target: /rootfs
+        read_only: true
+      - type: bind
+        source: /var/run
+        target: /var/run
+        read_only: true
+      - type: bind
+        source: /sys
+        target: /sys
+        read_only: true
+      - type: bind
+        source: /var/lib/docker
+        target: /var/lib/docker
+        read_only: true
+
+    networks:
+      - monitoring
+
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - node.labels.spacenorm_obj_detection == true
+      restart_policy:
+        condition: any
+        delay: 5s
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+
+    command:
+      - "--path.rootfs=/host"
+
+    volumes:
+      - type: bind
+        source: /
+        target: /host
+        read_only: true
+
+    networks:
+      - monitoring
+
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - node.labels.spacenorm_obj_detection == true
+      restart_policy:
+        condition: any
+        delay: 5s
+
+networks:
+  monitoring:
+    driver: overlay
+
+  spacenorm_obj_detection_default:
+    external: true
+
+configs:
+  # Content-hash-named external configs, matching the convention used
+  # elsewhere in this project (deploy_obj_detection.sh's default_cfg_<hash>
+  # etc.) -- NOT `file:` auto-managed configs. Swarm config objects are
+  # immutable once created ("only updates to Labels are allowed"), so a
+  # fixed-name `file:` config breaks on the very next edit to the file it
+  # points at (hit this live: editing the datasource/dashboard JSON after
+  # first deploy failed with exactly that error). A content hash in the
+  # name sidesteps it: an edited file gets a new name automatically, old
+  # services keep referencing the old (still-valid) config object, and the
+  # update proceeds as a normal rolling update instead of an in-place edit.
+  #
+  # Recompute + recreate before any deploy that follows an edit to one of
+  # these files:
+  #   sha256sum <path> | awk '{print substr($1,1,12)}'
+  #   docker config create <name>_<hash> <path>
+  # then update the `name:` below to match.
+  prometheus_cfg:
+    external: true
+    name: prometheus_cfg_d720da39b284
+
+  grafana_datasource_cfg:
+    external: true
+    name: grafana_datasource_cfg_f98dbafd5fe9
+
+  grafana_dashboard_provider_cfg:
+    external: true
+    name: grafana_dashboard_provider_cfg_93c80baedda1
+
+  grafana_dashboard_fleet:
+    external: true
+    name: grafana_dashboard_fleet_546cadf2b493
+
+  grafana_dashboard_per_camera:
+    external: true
+    name: grafana_dashboard_per_camera_c87c9eab7e24
+
+  grafana_dashboard_cctv_config:
+    external: true
+    name: grafana_dashboard_cctv_config_8562e24ce420
+
+  gateway_nginx_cfg:
+    external: true
+    name: gateway_nginx_cfg_dcd582b8132f
+
+secrets:
+  grafana_admin_password:
+    external: true

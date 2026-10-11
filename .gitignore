@@ -54,6 +54,7 @@ docker_build/spacenorm_anomaly_detect/
 docker_build/spacenorm_obj_detection/
 deprecated_docker_shared/
 docker_swarm/*.yml
+!docker_swarm/stack_monitoring.yml
 
 
 storage.googleapis.com
