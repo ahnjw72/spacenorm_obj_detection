@@ -27,15 +27,6 @@ scrape_configs:
         labels:
           group: 'spacenorm_obj_detection'
 
-  # TEMPORARY -- the jaeil_cr_test throwaway test service (stack_jaeil_cr_test.yml).
-  # Remove this job once the test service is torn down; it is not a real site.
-  - job_name: 'spacenorm_obj_detection_test'
-    static_configs:
-      - targets:
-          - 'spacenorm_obj_detection_jaeil_cr_test:9000'
-        labels:
-          group: 'spacenorm_obj_detection_test'
-
   - job_name: 'cadvisor'
     dns_sd_configs:
       - names: ['tasks.cadvisor']
