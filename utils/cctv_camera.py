@@ -18,6 +18,7 @@ import os
 import time
 
 from .gateway_api import Gateway # spacenorm Gateway API - ahnjw,2020.11.11
+from .metrics import camera_reconnect_attempts_total
 
 #from queue import Queue
 #IMG_QUEUE_SIZE = 1
@@ -230,6 +231,11 @@ def get_gst_pipeline(uri, latency=200, timeout_ms=5000):
     )
 
 def open_rtsp_universal(key, uri, timeout_ms=10000): # Try to open RTSP stream with multiple backends (2026.01.09)
+    # Single choke-point for every connect/reconnect attempt (both the
+    # initial RTSP_Camera._open() call and grab_img()'s reconnect path route
+    # through here), so this is where the attempt counter is incremented.
+    camera_reconnect_attempts_total.labels(camera=key).inc()
+
     # 1. Try GStreamer (Optimized)
     logger.debug(f"[{key}] Attempting GStreamer: {uri}")
     pipeline = get_gst_pipeline(uri)

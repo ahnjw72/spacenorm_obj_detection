@@ -224,15 +224,56 @@ on default credentials. Decisions:
   dashboards, add datasources, or run raw Prometheus queries (itself a
   secondary privacy surface, since camera-presence-correlated metrics are
   queryable even without the image panels).
-- **No published host port.** Grafana does not need to be reachable outside
-  the swarm to do its job, given the existing `spacenorm_obj_detection_default`
-  overlay network already reaches every site. Access is via SSH tunnel /
-  VPN into the manager node, not a `mode: host` port publish. If routine
-  multi-person access later makes a published port worth it, a reverse
-  proxy (Traefik/nginx) terminating TLS in front of it becomes mandatory at
-  that point, not optional — Grafana serves plain HTTP by default, and
-  publishing it directly would put admin credentials and camera frames in
-  cleartext on whatever network reaches that port.
+- **Published port, superseding the original "no published port" plan.** The
+  original decision here was to keep Grafana unpublished, reachable only via
+  SSH tunnel/VPN into the manager node. Live testing surfaced a reason that
+  doesn't work as-is: the per-camera dashboard's Live Snapshot panel is a
+  Grafana Text panel embedding `<img src="...">`, which is fetched by the
+  **browser**, not by Grafana's backend — and a browser cannot resolve
+  Swarm-internal service names (`spacenorm_obj_detection_<site>`), confirmed
+  live when the panel came back empty. The fix: a single `gateway` (nginx)
+  service, published via `mode: host` on port 8090, reverse-proxying `/` to
+  Grafana and `/snapshot/<site>/*` to each site's internal `:8081` — nginx's
+  backend sits on the overlay network and can resolve those names, so the
+  browser only ever needs to reach the one published port. Grafana itself
+  has no published port of its own again, same spirit as the original
+  decision, just satisfied through `gateway` instead of a direct publish.
+- **How to actually open it.** `http://10.144.0.240:8090` — the manager
+  node's VPN (`wg0`) address, port 8090 (`gateway`'s published port, not
+  Grafana's native 3000). Log in with `admin` / the password in
+  `~/grafana_admin_password.txt` on the manager node.
+- **Access-boundary decision + caveat, as of this rollout.** The manager
+  node (`ahnjw-GTEC-Ubuntu`) carries two interfaces: the VPN (`wg0`,
+  `10.144.0.0/24`, the fleet's existing trust boundary — every swarm node is
+  assumed to be on this VPN) and the office LAN (`eno1`, `192.168.0.0/24`).
+  Swarm's `mode: host` port publishing binds to all interfaces with no
+  native way to restrict to one — confirmed empirically: `docker stack
+  config` rejects a `host_ip` field on the ports entry outright. **Decision:
+  leave `gateway`'s port 8090 reachable from both the VPN and the LAN, not
+  VPN-only, for now** — judged low-risk given this is understood to be a
+  small, fully-trusted office LAN with no guest/untrusted-device access.
+  **The caveat that makes this a deliberate tradeoff, not a minor one:**
+  `/snapshot/<site>/<camera>` carries **no authentication of its own** —
+  not Grafana's login, not anything else. Anyone who can reach port 8090,
+  by LAN or VPN, can view live camera footage directly with nothing more
+  than a site name and a camera name (ordinary descriptive strings, not
+  secret tokens). Grafana's own admin login is also unauthenticated against
+  network sniffing, since there is no TLS. Two alternatives were evaluated
+  and are the path to take if this is ever revisited: (a) an iptables
+  `DOCKER-USER` chain rule restricting port 8090 to traffic arriving via
+  `wg0` — tried, confirmed to work for the ACCEPT path, but rejected as the
+  long-term answer because it lives outside git entirely, on this one
+  host's live netfilter state, and does not travel with the service if
+  `gateway` is ever rescheduled to a different node, nor survive a reboot
+  without separate persistence setup; (b) nginx-level `allow`/`deny` by
+  source IP inside `gateway`'s own `nginx.conf`, matching the confirmed VPN
+  CIDR (`10.144.0.0/24`) — judged the better fix precisely because it is
+  version-controlled, deployed as a Swarm config object exactly like
+  everything else in this stack, and travels automatically with the service
+  regardless of node placement. Revisit via (b) if the LAN's trust profile
+  changes (guest WiFi, contractor devices, anything not fully controlled)
+  or once the login/camera-feed exposure stops being proportionate to who
+  can reach that network.
 - OAuth/SSO (Grafana supports Google/GitHub/LDAP out of the box) is not
   adopted for the initial rollout — local accounts plus the two points above
   are proportionate for a small, solo-operated fleet. Revisit if more than

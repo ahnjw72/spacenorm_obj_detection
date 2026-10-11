@@ -1,0 +1,19 @@
+# Grafana dashboard provisioning -- checked into git per the
+# dashboards-as-code decision in docs/prometheus_grafana_monitoring_plan.md §5.
+# Points at the dashboard JSON files mounted alongside this file; Grafana
+# reloads this directory periodically, so editing a dashboard JSON in git
+# and redeploying picks it up with no manual re-import.
+
+apiVersion: 1
+
+providers:
+  - name: spacenorm_obj_detection
+    orgId: 1
+    folder: "spacenorm_obj_detection"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/provisioning/dashboards/json
+      foldersFromFilesStructure: false
