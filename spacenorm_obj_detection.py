@@ -542,6 +542,8 @@ def _publish_camera_info(key, entry, config_method):
         mqtt_broker_port=entry.get('mqtt_broker_port', ''),
         min_obj_size_ratio=entry.get('min_obj_size_ratio', ''),
         has_roi='ROI' in entry,
+        user_group_index=entry.get('user_group_index'),
+        vision_node_id=entry.get('vision_node_id'),
     )
 
 
@@ -862,8 +864,9 @@ def main():
     if getattr(cfg, "config_method", "static") == "static":
         init_cctv_data(cfg.spacenorm_sensor_cfg_file)
     else:
+        group_ids = [g['vision_node_id'] for g in cfg.user_groups]
         logger.info(f"cctv_configuration.config_method = 'dynamic' -- skipping static init_cctv_data(); "
-                    f"sensors/CCTVs will be fetched from the vision_nodes API (vision_node_id={cfg.vision_node_id})")
+                    f"sensors/CCTVs will be fetched from the vision_nodes API ({len(cfg.user_groups)} user group(s), vision_node_id={group_ids})")
 
     t1 = threading.Thread(name='detector_YOLO_multithreaded', target=detector_YOLO_multithreaded, args=(cfg,))
     t1.daemon = True

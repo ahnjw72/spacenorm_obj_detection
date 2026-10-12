@@ -44,7 +44,8 @@ dynamic_config_sensors_active = Gauge(
 camera_info = Gauge(
     'spacenorm_camera_info', 'CCTV configuration info (value always 1)',
     ['camera', 'device_id', 'company_name', 'config_method', 'monitor_id',
-     'mqtt_broker_addr', 'mqtt_broker_port', 'min_obj_size_ratio', 'has_roi'])
+     'mqtt_broker_addr', 'mqtt_broker_port', 'min_obj_size_ratio', 'has_roi',
+     'user_group_index', 'vision_node_id'])
 
 # camera_info's label set can change over time for a given camera (dynamic
 # mode: ROI added, mqtt broker changed, etc.). A Gauge has no "upsert
@@ -64,7 +65,8 @@ def start_metrics_server(port):
 
 
 def set_camera_info(camera, device_id, company_name, config_method, monitor_id,
-                     mqtt_broker_addr, mqtt_broker_port, min_obj_size_ratio, has_roi):
+                     mqtt_broker_addr, mqtt_broker_port, min_obj_size_ratio, has_roi,
+                     user_group_index=None, vision_node_id=None):
     label_values = (
         camera,
         str(device_id or ''),
@@ -75,6 +77,8 @@ def set_camera_info(camera, device_id, company_name, config_method, monitor_id,
         str(mqtt_broker_port or ''),
         str(min_obj_size_ratio or ''),
         str(bool(has_roi)),
+        str(user_group_index) if user_group_index is not None else '',
+        str(vision_node_id) if vision_node_id is not None else '',
     )
     with _camera_info_lock:
         previous = _camera_info_label_cache.get(camera)

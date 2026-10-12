@@ -61,7 +61,7 @@ def inject_rtsp_credentials(url, username=DEFAULT_RTSP_USERNAME, password=DEFAUL
     return urllib.parse.urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
 
 
-def build_cctv_entry(company_name, sensor, cctv, access_token):
+def build_cctv_entry(company_name, sensor, cctv, access_token, user_group_index):
     """Build one cctv_ID[key]-shaped dict from a (sensor, cctv) pair.
 
     key is constructed as "<company_name>_<desc>" (requirement 9).
@@ -75,6 +75,11 @@ def build_cctv_entry(company_name, sensor, cctv, access_token):
         'access_token': access_token,
         'refresh_token': None, # unused by Gateway.__init__ -- see utils/gateway_api.py
         'snapshot_url': cctv.get('snapshot_url'),
+        # Hierarchy fields for the spacenorm_camera_info metric -- lets
+        # Grafana show the user_groups -> vision_nodes -> CCTVs hierarchy
+        # defined in the overrides json file, not just a flat camera list.
+        'user_group_index': user_group_index,
+        'vision_node_id': sensor.get('vision_node_id'),
     }
 
     roi_vertices_raw = cctv.get('roi_vertices')
@@ -104,47 +109,87 @@ def build_cctv_entry(company_name, sensor, cctv, access_token):
 
 
 def fetch_dynamic_config(cfg):
-    """Fetch and parse the dynamic sensors & CCTV configuration for the site
-    identified by cfg.access_token / cfg.vision_node_id.
+    """Fetch and parse the dynamic sensors & CCTV configuration for the site,
+    merging results across every {access_token, vision_node_id} user group
+    in cfg.user_groups -- a site can serve multiple user groups, each its
+    own account/token with its own set of vision nodes.
 
-    Returns a dict[key -> cctv_entry] on success, or None (logged) on any
-    fetch/parse failure -- callers should treat None as "retry next period".
+    A group that fails to fetch or parse is logged and skipped; the site
+    continues with whichever groups succeeded rather than losing all
+    coverage because one group's token or network had an issue. Returns
+    None only when every group failed (nothing to merge) or cfg.user_groups
+    is empty -- callers should treat None as "retry next period".
     """
-    api = VisionNodeAPI(cfg.access_token)
-    data = api.fetch_sync_data(cfg.vision_node_id)
-    if data is None:
+    if not cfg.user_groups:
+        logger.warning("cfg.user_groups is empty -- nothing to fetch in dynamic config method")
         return None
 
-    try:
-        company_name = data['company_name']
-        sensors = data.get('sensors', [])
-        cctvs_by_id = {cctv['id']: cctv for cctv in data.get('cctvs', [])}
-        # security_regions is deliberately ignored (requirement 10).
+    test_device_ids = getattr(cfg, 'test_device_ids', None)
+    result = {}
+    any_group_succeeded = False
 
-        test_device_ids = getattr(cfg, 'test_device_ids', None)
+    for user_group_index, group in enumerate(cfg.user_groups):
+        access_token = group['access_token']
+        vision_node_id = group['vision_node_id']
+        # vision_node_id may be a single id or a list of ids (see
+        # VisionNodeAPI.fetch_sync_data); normalize to a list once so the
+        # membership check below is the same either way.
+        group_vision_node_ids = vision_node_id if isinstance(vision_node_id, (list, tuple)) else [vision_node_id]
 
-        result = {}
-        for sensor in sensors:
-            if sensor.get('vision_node_id') != cfg.vision_node_id:
-                continue # belongs to a different vision node in a multi-id response
+        api = VisionNodeAPI(access_token)
+        data = api.fetch_sync_data(vision_node_id)
+        if data is None:
+            logger.warning(f"user group with vision_node_id {vision_node_id} failed to fetch -- skipping this group")
+            continue
 
-            if test_device_ids and sensor['device_id'] not in test_device_ids:
-                continue
+        try:
+            sensors = data.get('sensors', [])
+            cctvs_by_id = {cctv['id']: cctv for cctv in data.get('cctvs', [])}
+            # Each vision_node carries its own name, and a multi-id fetch can
+            # span multiple companies (e.g. ids=[1,8,9] -> 3 different
+            # companies) -- so every sensor's company_name must be looked up
+            # by its OWN vision_node_id, not a single shared value. The
+            # response's top-level data['company_name'] only ever reflects
+            # one node and would mislabel every other node's sensors.
+            company_name_by_node = {n['id']: n['name'] for n in data.get('vision_nodes', [])}
+            # security_regions is deliberately ignored (requirement 10).
 
-            cctv = cctvs_by_id.get(sensor['cctv_id'])
-            if cctv is None:
-                logger.warning(f"sensor {sensor.get('sensor_id')} references unknown cctv_id {sensor.get('cctv_id')} -- skipping")
-                continue
+            for sensor in sensors:
+                sensor_node_id = sensor.get('vision_node_id')
+                if sensor_node_id not in group_vision_node_ids:
+                    continue # belongs to a vision node not in this group's configured list
 
-            key, entry = build_cctv_entry(company_name, sensor, cctv, cfg.access_token)
-            result[key] = entry
+                if test_device_ids and sensor['device_id'] not in test_device_ids:
+                    continue
 
-        dynamic_config_last_fetch_timestamp.set(time.time())
-        dynamic_config_sensors_active.set(len(result))
-        return result
-    except (KeyError, TypeError, ValueError) as e:
-        logger.error(f"Failed to parse vision_nodes sync_data response: {e}")
+                cctv = cctvs_by_id.get(sensor['cctv_id'])
+                if cctv is None:
+                    logger.warning(f"sensor {sensor.get('sensor_id')} references unknown cctv_id {sensor.get('cctv_id')} -- skipping")
+                    continue
+
+                if not cctv.get('private_url'):
+                    logger.warning(f"sensor {sensor.get('sensor_id')} / cctv {cctv.get('id')} has no private_url -- skipping")
+                    continue
+
+                company_name = company_name_by_node.get(sensor_node_id)
+                if company_name is None:
+                    logger.warning(f"sensor {sensor.get('sensor_id')} references vision_node_id {sensor_node_id} not present in vision_nodes list -- skipping")
+                    continue
+
+                key, entry = build_cctv_entry(company_name, sensor, cctv, access_token, user_group_index)
+                result[key] = entry
+
+            any_group_succeeded = True
+        except (KeyError, TypeError, ValueError) as e:
+            logger.error(f"Failed to parse vision_nodes sync_data response for group with vision_node_id {vision_node_id}: {e}")
+            continue
+
+    if not any_group_succeeded:
         return None
+
+    dynamic_config_last_fetch_timestamp.set(time.time())
+    dynamic_config_sensors_active.set(len(result))
+    return result
 
 
 def diff_configs(old, new):

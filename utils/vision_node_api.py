@@ -29,13 +29,23 @@ class VisionNodeAPI:
             logger.error(f"HTTP error: {e.response.text}")
 
     def fetch_sync_data(self, vision_node_id):
-        """Fetch sensors/cctvs configuration for the given vision_node_id.
+        """Fetch sensors/cctvs configuration for the given vision_node_id(s).
+
+        vision_node_id may be a single id or a list/tuple of ids -- the API
+        accepts multiple ids as one comma-separated value (confirmed live:
+        ids=2,5 returns the union of both nodes' sensors in one response;
+        the requests-library default of repeating the param, ids=2&ids=5,
+        does NOT work -- the server silently keeps only the last one).
 
         Returns the parsed JSON dict on success, or None (with the error
         logged) on any network/HTTP/JSON failure -- callers should treat a
         None return as "retry next period", not a fatal error.
         """
-        params = {'ids': vision_node_id}
+        if isinstance(vision_node_id, (list, tuple)):
+            ids_param = ','.join(str(i) for i in vision_node_id)
+        else:
+            ids_param = str(vision_node_id)
+        params = {'ids': ids_param}
 
         try:
             r = requests.get(self.sync_data_url, headers=self.__header, params=params, timeout=self.requests_timeout)
