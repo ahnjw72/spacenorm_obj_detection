@@ -90,26 +90,37 @@ def add_source_code_header(response):
 
 @app.route("/snapshot/<path:camera>")
 def snapshot(camera):
-    """On-demand snapshot: freshest raw frame + ROI overlay + most recently
-    computed detection boxes, composited and returned directly -- no disk
-    write, no background writer thread. Capture only happens when this route
-    is actually hit (Grafana dashboard load / manual refresh), never on a
-    fixed interval. See docs/prometheus_grafana_monitoring_plan.md §4.
+    """On-demand snapshot: the frame the last detection cycle actually ran
+    on, overlaid with its own bounding boxes + ROI, returned directly -- no
+    disk write, no background writer thread. Capture only happens when this
+    route is actually hit (Grafana dashboard load / manual refresh), never
+    on a fixed interval. See docs/prometheus_grafana_monitoring_plan.md §4.
+
+    Uses the frame cached alongside its detection result rather than a
+    fresh cam.read() -- a fresh frame would show boxes computed on a
+    different, earlier frame, since the live RTSP stream moves on while
+    inference runs (confirmed live: boxes and image visibly desynced,
+    worse under load or on fast-moving scenes). Tradeoff: the shown frame
+    lags by about one detection cycle, same as the boxes already did --
+    but image and boxes now always correspond to the same instant. Falls
+    back to a fresh cam.read() with no boxes only before the first
+    detection cycle completes for this camera.
     """
     cam = RTSP_Camera_dict.get(camera)
     if cam is None:
         return Response(f"unknown camera: {camera}", status=404)
 
-    img = cam.read()
-    if img is None:
-        return Response(f"no frame currently available for: {camera}", status=503)
-
     with latest_detection_result_lock:
         cached = latest_detection_result.get(camera)
 
-    if cached is not None and vis_global is not None:
-        boxes, confs, clss, types, motionesses, _ts = cached
-        img = vis_global.draw_bboxes(img, boxes, confs, clss, types, motionesses)
+    if cached is not None:
+        boxes, confs, clss, types, motionesses, _ts, img = cached
+        if vis_global is not None:
+            img = vis_global.draw_bboxes(img.copy(), boxes, confs, clss, types, motionesses)
+    else:
+        img = cam.read()
+        if img is None:
+            return Response(f"no frame currently available for: {camera}", status=503)
 
     roi = cctv_ID.get(camera, {}).get('ROI')
     if roi:
@@ -401,7 +412,12 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
 
                             # logger.info(f"[{key}] Try to add AR comment with files")
                             
-                            img_for_AR = vis.draw_bboxes(img, boxes, confs, clss, types, motionesses)
+                            # img.copy(): draw_bboxes() mutates its input in place, and img
+                            # is now cached for the /snapshot endpoint (see latest_detection_result
+                            # below) -- drawing directly on img here would leak these boxes into
+                            # the cached frame, double-drawing them when the endpoint overlays
+                            # its own boxes on top.
+                            img_for_AR = vis.draw_bboxes(img.copy(), boxes, confs, clss, types, motionesses)
                             
                             image_filename = f'./{PKG_NAME}/AR_images/{key}_{tic}.jpg'
                             cv2.imwrite(image_filename, img_for_AR)
@@ -445,16 +461,24 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
         if (num_detected_boxes > 0) and args.record_detection_result:
 
             with detect_csv_writer_lock:
-                record_detection_result(key, boxes, confs, clss, types, motionesses, detect_csv_writer, img, vis, args, frame_idx)
+                # img.copy(): record_detection_result() draws boxes on its img
+                # argument in place, and img is cached below for the /snapshot
+                # endpoint -- passing the shared reference here would leak these
+                # boxes into the cached frame, double-drawing them later.
+                record_detection_result(key, boxes, confs, clss, types, motionesses, detect_csv_writer, img.copy(), vis, args, frame_idx)
 
             frame_idx = (frame_idx + 1) % args.max_images_in_output
         # --------------------------------------------------------------------------------------
 
-        # Cache the latest computed detection result so the on-demand
-        # /snapshot/<camera> endpoint (§4) can composite it onto a fresh
-        # cam.read() frame per-request, without re-running inference.
+        # Cache the latest computed detection result TOGETHER WITH the exact
+        # frame it was computed on, so the on-demand /snapshot/<camera>
+        # endpoint (§4) draws boxes on the frame they actually match,
+        # without re-running inference. A fresh cam.read() at request time
+        # would show boxes computed on a different, earlier frame -- the
+        # live RTSP stream moves on while inference runs, so "freshest
+        # frame + latest boxes" drifts out of sync (confirmed live).
         with latest_detection_result_lock:
-            latest_detection_result[key] = (boxes, confs, clss, types, motionesses, tic)
+            latest_detection_result[key] = (boxes, confs, clss, types, motionesses, tic, img)
 
         toc = time.time()
         tic_toc = toc-tic
