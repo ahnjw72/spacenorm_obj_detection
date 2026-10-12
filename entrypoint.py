@@ -2,7 +2,7 @@
 
 Container entrypoint for spacenorm_obj_detection.
 
-On each container start:
+On each container start, when SPACENORM_USE_TENSORRT is true (default):
   1. Compute SHA256 of the .pt model file
   2. Derive a unique engine filename
        <stem>_<sha256[:12]>_imgsz<N>_<precision>_trt<version>.engine
@@ -12,6 +12,11 @@ On each container start:
      (takes ~2-5 minutes on first run per node; subsequent starts are instant)
   4. Remove any stale engines for the same model (different TRT version or params).
   5. exec() the main service, passing the engine path via --model
+
+When SPACENORM_USE_TENSORRT is false, steps 1-4 are skipped entirely and the
+main service is launched directly on the .pt file -- for nodes whose GPU/RAM
+can't complete a TRT engine build (the build step needs substantially more
+memory than either backend's actual inference).
 
 Environment variables (all optional — defaults match default.json / stack.yml):
   SPACENORM_MODEL_PT         Path to the source .pt file inside the container
@@ -23,6 +28,13 @@ Environment variables (all optional — defaults match default.json / stack.yml)
   SPACENORM_TRT_HALF         FP16 mode — 'true' or 'false'  (default: true)
   SPACENORM_DEVICE           GPU device index  (default: 0)
   SPACENORM_TRT_WORKSPACE    TensorRT workspace in GiB  (default: 4)
+  SPACENORM_USE_TENSORRT     'true' or 'false'  (default: true). When false, the
+                             TensorRT build/cache step is skipped entirely and
+                             the service launches directly on the .pt file via
+                             Ultralytics' native PyTorch backend -- for nodes
+                             whose GPU/RAM can't complete a TRT engine build
+                             (the build step is far more memory-hungry than
+                             either TRT or .pt inference).
 """
 
 import hashlib
@@ -42,6 +54,7 @@ IMGSZ             = int(os.environ.get('SPACENORM_IMGSZ', '640'))
 HALF              = os.environ.get('SPACENORM_TRT_HALF', 'true').lower() == 'true'
 DEVICE            = int(os.environ.get('SPACENORM_DEVICE', '0'))
 WORKSPACE         = int(os.environ.get('SPACENORM_TRT_WORKSPACE', '4'))
+USE_TENSORRT      = os.environ.get('SPACENORM_USE_TENSORRT', 'true').lower() == 'true'
 
 
 # ---------------------------------------------------------------------------
@@ -149,30 +162,39 @@ def main() -> None:
         print(f"[entrypoint] ERROR: .pt model not found: {pt_path}", file=sys.stderr)
         sys.exit(1)
 
-    cache_dir = Path(ENGINE_CACHE_DIR)
-    try:
-        cache_dir.mkdir(parents=True, exist_ok=True)
-    except PermissionError:
-        print(f"[entrypoint] ERROR: cannot create cache dir {cache_dir} — "
-              f"check that the host directory exists and is writable.", file=sys.stderr)
-        sys.exit(1)
-
-    fname       = engine_filename(pt_path, IMGSZ, HALF)
-    engine_path = str(cache_dir / fname)
-
-    if Path(engine_path).exists():
-        print(f"[entrypoint] Cached engine found: {engine_path}", flush=True)
+    if not USE_TENSORRT:
+        print(f"[entrypoint] SPACENORM_USE_TENSORRT=false -- skipping TensorRT "
+              f"entirely, running inference directly on {pt_path} via Ultralytics' "
+              f"native PyTorch backend.", flush=True)
+        model_path = pt_path
     else:
-        export_engine(pt_path, engine_path, IMGSZ, HALF, DEVICE, WORKSPACE)
-        cleanup_stale_engines(cache_dir, engine_path)
+        cache_dir = Path(ENGINE_CACHE_DIR)
+        try:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            print(f"[entrypoint] ERROR: cannot create cache dir {cache_dir} — "
+                  f"check that the host directory exists and is writable.", file=sys.stderr)
+            sys.exit(1)
+
+        fname       = engine_filename(pt_path, IMGSZ, HALF)
+        engine_path = str(cache_dir / fname)
+
+        if Path(engine_path).exists():
+            print(f"[entrypoint] Cached engine found: {engine_path}", flush=True)
+        else:
+            export_engine(pt_path, engine_path, IMGSZ, HALF, DEVICE, WORKSPACE)
+            cleanup_stale_engines(cache_dir, engine_path)
+
+        model_path = engine_path
 
     # Replace this process with the main service.
     # Pass --model to override the value from default.json so the service
-    # picks up the .engine file instead of the .pt file.
+    # picks up the resolved model path (either the .engine file, or the .pt
+    # file directly when SPACENORM_USE_TENSORRT=false).
     cmd = [
         sys.executable, '-u', '-m',
         'spacenorm_obj_detection.spacenorm_obj_detection',
-        '--model', engine_path,
+        '--model', model_path,
     ]
     print(f"[entrypoint] Launching: {' '.join(cmd)}", flush=True)
     os.execv(sys.executable, cmd)

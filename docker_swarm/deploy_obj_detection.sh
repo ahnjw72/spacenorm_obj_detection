@@ -195,6 +195,28 @@ print(imgsz)
 ")
 echo "[INFO] SPACENORM_IMGSZ: ${SPACENORM_IMGSZ}"
 
+# Derive SPACENORM_USE_TENSORRT from the server override config so that
+# servers whose GPU/RAM can't complete a TRT engine build (e.g. kumho) can
+# opt out and run directly on the .pt file instead. Defaults to true
+# (unchanged behavior) when absent from both override and default.json.
+export SPACENORM_USE_TENSORRT=$(python3 -c "
+import json
+def get_use_tensorrt(cfg_path):
+    try:
+        d = json.load(open(cfg_path))
+        return d['detector']['use_tensorrt']['value']
+    except (KeyError, TypeError, FileNotFoundError):
+        return None
+
+value = get_use_tensorrt('${OVERRIDE_CFG}')
+if value is None:
+    value = get_use_tensorrt('${DEFAULT_CFG}')
+if value is None:
+    value = True
+print(str(value).lower())
+")
+echo "[INFO] SPACENORM_USE_TENSORRT: ${SPACENORM_USE_TENSORRT}"
+
 envsubst < "${TEMPLATE}" > "${RENDERED}"
 
 # The stack bind-mounts /var/lib/spacenorm_obj_detection on each worker node

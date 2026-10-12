@@ -66,6 +66,7 @@ services:
       SPACENORM_TRT_HALF: "true"
       SPACENORM_DEVICE: "0"
       SPACENORM_TRT_WORKSPACE: "4"
+      SPACENORM_USE_TENSORRT: "${SPACENORM_USE_TENSORRT}"
 
     volumes:
       - type: bind
