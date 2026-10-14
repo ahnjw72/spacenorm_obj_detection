@@ -120,14 +120,22 @@ def resolve_rtsp_uri(key, private_url, candidates=RTSP_CREDENTIAL_CANDIDATES, ti
 def build_cctv_entry(company_name, sensor, cctv, access_token, user_group_index):
     """Build one cctv_ID[key]-shaped dict from a (sensor, cctv) pair.
 
-    key is constructed as "<company_name>_<desc>" (requirement 9).
+    key is constructed as "<company_name>_<desc>" (requirement 9), falling
+    back to "<company_name>_<cctv_id>" when desc is empty -- some sites'
+    cctvs all have desc="" (e.g. every 대영빌딩 camera observed), which
+    otherwise collapses every one of that company's cameras onto the same
+    key and silently drops all but the last one processed (result[key] =
+    entry overwrites). cctv['id'] is guaranteed unique and present (it's
+    the key fetch_dynamic_config() builds cctvs_by_id from), so it's a safe
+    disambiguator that doesn't change the key for any camera with a real
+    desc.
 
     Returns (key, None) when private_url has no embedded credentials and
     none of the RTSP_CREDENTIAL_CANDIDATES authenticated -- the caller
     should skip adding this camera this cycle and let it retry next refresh,
     rather than configuring a URI already known not to work.
     """
-    key = f"{company_name}_{cctv['desc']}"
+    key = f"{company_name}_{cctv['desc']}" if cctv['desc'] else f"{company_name}_{cctv['id']}"
 
     uri = resolve_rtsp_uri(key, cctv['private_url'])
     if uri is None:
