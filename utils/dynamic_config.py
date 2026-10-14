@@ -21,11 +21,29 @@ from .metrics import dynamic_config_last_fetch_timestamp, dynamic_config_sensors
 
 logger = logging.getLogger(__name__)
 
-# Temporary hardcoded RTSP credentials (requirement 6): the API does not yet
-# return per-CCTV ID/PASSWORD, so every dynamic-method CCTV uses the same
-# credentials until a dedicated API is available.
-DEFAULT_RTSP_USERNAME = 'space'
-DEFAULT_RTSP_PASSWORD = 'spacenorm12!@#'
+# Temporary hardcoded RTSP credential candidates (requirement 6): the API
+# does not yet return per-CCTV ID/PASSWORD, so a dynamic-method CCTV whose
+# private_url carries no credentials is probed against this known
+# fleet-wide set (2 usernames x 2 passwords) until a per-camera credential
+# API is available. Order tries the previous single hardcoded default
+# first, so already-working cameras resolve on the first probe.
+RTSP_CREDENTIAL_CANDIDATES = [
+    ('space', 'spacenorm12!@#'),
+    ('admin', 'spacenorm12!@#'),
+    ('space', 'Qwert12#'),
+    ('admin', 'Qwert12#'),
+]
+
+# Bound on each individual probe connection attempt -- keeps a fully
+# unreachable camera from stalling the whole dynamic-config refresh cycle
+# for 4x the default (much longer) FFmpeg RTSP connect timeout.
+RTSP_PROBE_TIMEOUT_MS = 5000
+
+# key -> (username, password) resolved once per process lifetime. Avoids
+# re-probing (and re-authenticating against the NVR) every refresh cycle
+# once a working combination is found; a camera not yet in this cache is
+# retried on the next refresh.
+_resolved_rtsp_credentials = {}
 
 # cctv_ID fields that affect a running detector thread's behavior; a change
 # in any of these (see diff_configs()) means the entry counts as "changed".
@@ -39,8 +57,8 @@ _CHANGE_TRACKED_FIELDS = ('ROI', 'min_obj_size_ratio', 'mqtt_broker_addr', 'mqtt
 _RESTART_REQUIRED_FIELDS = ('uri', 'mqtt_broker_addr', 'mqtt_broker_port')
 
 
-def inject_rtsp_credentials(url, username=DEFAULT_RTSP_USERNAME, password=DEFAULT_RTSP_PASSWORD):
-    """Embed hardcoded RTSP credentials into a credential-less private_url.
+def inject_rtsp_credentials(url, username, password):
+    """Embed the given RTSP credentials into a credential-less private_url.
 
     Most RTSP backends (and the FFmpeg/GStreamer paths used by
     open_rtsp_universal() in utils/cctv_camera.py) only use embedded userinfo
@@ -61,17 +79,64 @@ def inject_rtsp_credentials(url, username=DEFAULT_RTSP_USERNAME, password=DEFAUL
     return urllib.parse.urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
 
 
+def resolve_rtsp_uri(key, private_url, candidates=RTSP_CREDENTIAL_CANDIDATES, timeout_ms=RTSP_PROBE_TIMEOUT_MS):
+    """Return a connect-ready RTSP URI for private_url.
+
+    If private_url already carries its own credentials (the eventual,
+    per-camera-correct API shape), it is returned unchanged -- no probing.
+    Otherwise, probes `candidates` in order with a short-timeout
+    cv2.VideoCapture open (the same FFmpeg backend open_rtsp_universal()
+    already falls back to), caches the first one that authenticates against
+    `key`, and reuses that cached combination on every later call instead of
+    re-probing. If every candidate fails, returns None so the caller can
+    decide how to handle an unresolved camera (callers should retry on the
+    next refresh rather than caching a failure).
+    """
+    parsed = urllib.parse.urlsplit(private_url)
+    if parsed.username:
+        return private_url
+
+    cached = _resolved_rtsp_credentials.get(key)
+    if cached is not None:
+        return inject_rtsp_credentials(private_url, *cached)
+
+    for username, password in candidates:
+        candidate_uri = inject_rtsp_credentials(private_url, username, password)
+        cap = cv2.VideoCapture(candidate_uri, cv2.CAP_FFMPEG,
+                                [cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, timeout_ms,
+                                 cv2.CAP_PROP_READ_TIMEOUT_MSEC, timeout_ms])
+        opened = cap.isOpened()
+        cap.release()
+        if opened:
+            logger.info(f"[{key}] RTSP credential probe: resolved username='{username}'")
+            _resolved_rtsp_credentials[key] = (username, password)
+            return candidate_uri
+
+    logger.warning(f"[{key}] RTSP credential probe: none of the {len(candidates)} "
+                   "candidate credentials authenticated -- will retry next refresh cycle")
+    return None
+
+
 def build_cctv_entry(company_name, sensor, cctv, access_token, user_group_index):
     """Build one cctv_ID[key]-shaped dict from a (sensor, cctv) pair.
 
     key is constructed as "<company_name>_<desc>" (requirement 9).
+
+    Returns (key, None) when private_url has no embedded credentials and
+    none of the RTSP_CREDENTIAL_CANDIDATES authenticated -- the caller
+    should skip adding this camera this cycle and let it retry next refresh,
+    rather than configuring a URI already known not to work.
     """
     key = f"{company_name}_{cctv['desc']}"
+
+    uri = resolve_rtsp_uri(key, cctv['private_url'])
+    if uri is None:
+        return key, None
 
     entry = {
         'device_id': sensor['device_id'],
         'company_name': company_name, # needed for the spacenorm_camera_info metric
-        'uri': inject_rtsp_credentials(cctv['private_url']),
+        'uri': uri,
         'access_token': access_token,
         'refresh_token': None, # unused by Gateway.__init__ -- see utils/gateway_api.py
         'snapshot_url': cctv.get('snapshot_url'),
@@ -177,6 +242,8 @@ def fetch_dynamic_config(cfg):
                     continue
 
                 key, entry = build_cctv_entry(company_name, sensor, cctv, access_token, user_group_index)
+                if entry is None:
+                    continue # RTSP credential probe exhausted all candidates -- retry next refresh
                 result[key] = entry
 
             any_group_succeeded = True
