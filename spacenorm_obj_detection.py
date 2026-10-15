@@ -40,7 +40,7 @@ SETTINGS.update({'sync': False})
 
 from .utils.yolo_inference import make_yolo_annotation_file, create_yolo_model, yolo_inference_image, record_detection_result
 from .utils.config_loader import SpacenormConfigLoader
-from .utils.dynamic_config import fetch_dynamic_config, diff_configs, requires_thread_restart, save_and_upload_snapshot
+from .utils.dynamic_config import fetch_dynamic_config, diff_configs, requires_thread_restart, save_and_upload_snapshot, forget_snapshot_state
 from .utils.metrics import (
     start_metrics_server, detector_threads_active, detector_threads_expected,
     camera_connected, camera_last_frame_timestamp, detections_total, mqtt_connected,
@@ -662,6 +662,7 @@ def dynamic_config_refresh_loop(cfg, ctx):
             logger.info(f"[{key}] removed from dynamic config -- stopping detector")
             _remove_detector(key)
             cctv_ID.pop(key, None)
+            forget_snapshot_state(key)
 
         for key in added:
             logger.info(f"[{key}] added to dynamic config -- starting detector")
@@ -685,7 +686,12 @@ def dynamic_config_refresh_loop(cfg, ctx):
         for key in list(cctv_ID.keys()):
             cam = RTSP_Camera_dict.get(key)
             if cam is not None and cam.isOpened():
-                save_and_upload_snapshot(key, cam, cctv_ID[key], cfg.roi_snapshot_dir)
+                # Use new_cfg[key] (this cycle's freshly-fetched entry), not
+                # cctv_ID[key] -- cctv_ID[key] is only overwritten for keys in
+                # added/changed above, so a key whose only delta is
+                # snapshot_update_required (not a _CHANGE_TRACKED_FIELDS
+                # entry) would otherwise still read the stale flag.
+                save_and_upload_snapshot(key, cam, new_cfg[key], cfg.roi_snapshot_dir)
 
         with registry_lock:
             detector_threads_active.set(len(detector_registry))

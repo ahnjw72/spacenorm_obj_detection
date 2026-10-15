@@ -45,6 +45,17 @@ RTSP_PROBE_TIMEOUT_MS = 5000
 # retried on the next refresh.
 _resolved_rtsp_credentials = {}
 
+# Keys for which a snapshot has already been uploaded during the current
+# contiguous snapshot_update_required=True stretch (set includes the
+# "True from the very first fetch" case, which is what makes initial
+# configuration upload exactly once too). The API has no ack endpoint to
+# clear the flag itself, so this process-local marker is what keeps a
+# flag that the server leaves True forever from causing a re-upload on
+# every config_renew_period cycle. Cleared when the flag goes back to
+# False (see should_upload_snapshot()), so a later False->True transition
+# uploads again.
+_snapshot_uploaded_keys = set()
+
 # cctv_ID fields that affect a running detector thread's behavior; a change
 # in any of these (see diff_configs()) means the entry counts as "changed".
 _CHANGE_TRACKED_FIELDS = ('ROI', 'min_obj_size_ratio', 'mqtt_broker_addr', 'mqtt_broker_port', 'uri')
@@ -148,6 +159,7 @@ def build_cctv_entry(company_name, sensor, cctv, access_token, user_group_index)
         'access_token': access_token,
         'refresh_token': None, # unused by Gateway.__init__ -- see utils/gateway_api.py
         'snapshot_url': cctv.get('snapshot_url'),
+        'snapshot_update_required': bool(cctv.get('snapshot_update_required')),
         # Hierarchy fields for the spacenorm_camera_info metric -- lets
         # Grafana show the user_groups -> vision_nodes -> CCTVs hierarchy
         # defined in the overrides json file, not just a flat camera list.
@@ -296,9 +308,43 @@ def requires_thread_restart(old_entry, new_entry):
     return any(old_entry.get(field) != new_entry.get(field) for field in _RESTART_REQUIRED_FIELDS)
 
 
+def should_upload_snapshot(key, cctv_entry):
+    """Whether save_and_upload_snapshot() should PUT a snapshot for `key`
+    this cycle, as opposed to every config_renew_period cycle the flag
+    happens to still read True.
+
+    Edge-triggered on cctv_entry['snapshot_update_required']: uploads once
+    per contiguous True stretch (a key seen for the first time while
+    already True -- i.e. initial configuration -- counts as the start of a
+    stretch), then returns False on every later call until the flag goes
+    back to False and True again. forget_snapshot_state() clears this
+    instead when a camera leaves the dynamic config entirely, so a later,
+    unrelated camera that happens to reuse the same key starts fresh.
+    """
+    if not cctv_entry.get('snapshot_update_required'):
+        _snapshot_uploaded_keys.discard(key)
+        return False
+
+    return key not in _snapshot_uploaded_keys
+
+
+def forget_snapshot_state(key):
+    """Drop `key`'s upload-tracking state -- call when a camera is removed
+    from the dynamic config, so a different camera later reusing the same
+    key (same company_name + desc/id) doesn't inherit a stale "already
+    uploaded" marker and silently skip its own due upload.
+    """
+    _snapshot_uploaded_keys.discard(key)
+
+
 def save_and_upload_snapshot(key, cam, cctv_entry, snapshot_dir):
     """Write a sample image (with the ROI drawn, if defined) for human ROI
-    verification, and upload it to cctv_entry['snapshot_url'] if set.
+    verification, and upload it to cctv_entry['snapshot_url'] when the API
+    has flagged this camera's snapshot as needing a refresh
+    (snapshot_update_required=True) and it hasn't been uploaded yet for
+    this stretch (see should_upload_snapshot()). Capture freshness doesn't
+    matter here -- this snapshot is only for a human to check the ROI
+    overlay against the camera's framing, not for detection.
     """
     img = cam.read()
     if img is None:
@@ -314,9 +360,13 @@ def save_and_upload_snapshot(key, cam, cctv_entry, snapshot_dir):
     cv2.imwrite(snapshot_path, img)
     logger.info(f"[{key}] ROI snapshot written to {snapshot_path}")
 
+    if not should_upload_snapshot(key, cctv_entry):
+        logger.debug(f"[{key}] snapshot upload not due this cycle -- skipping")
+        return
+
     snapshot_url = cctv_entry.get('snapshot_url')
     if not snapshot_url:
-        logger.warning(f"[{key}] snapshot_url is not set -- skipping snapshot upload")
+        logger.warning(f"[{key}] snapshot_update_required is set but snapshot_url is not -- skipping snapshot upload")
         return
 
     try:
@@ -324,5 +374,7 @@ def save_and_upload_snapshot(key, cam, cctv_entry, snapshot_dir):
             r = requests.put(snapshot_url, data=f, timeout=10)
             r.raise_for_status()
         logger.info(f"[{key}] snapshot uploaded to {snapshot_url}")
+        _snapshot_uploaded_keys.add(key)
     except requests.exceptions.RequestException as e:
         logger.error(f"[{key}] failed to upload snapshot to {snapshot_url}: {e}")
+        # not marked uploaded -- a transient failure retries next cycle
