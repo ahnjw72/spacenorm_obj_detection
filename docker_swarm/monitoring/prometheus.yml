@@ -24,6 +24,7 @@ scrape_configs:
           - 'spacenorm_obj_detection_jaeil_io:9000'
           - 'spacenorm_obj_detection_kumho:9000'
           - 'spacenorm_obj_detection_kumho_car:9000'
+          - 'spacenorm_obj_detection_yujin:9000'
         labels:
           group: 'spacenorm_obj_detection'
 

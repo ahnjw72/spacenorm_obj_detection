@@ -231,7 +231,7 @@ configs:
   # then update the `name:` below to match.
   prometheus_cfg:
     external: true
-    name: prometheus_cfg_d720da39b284
+    name: prometheus_cfg_67d8fc9fc971
 
   grafana_datasource_cfg:
     external: true
@@ -251,11 +251,11 @@ configs:
 
   grafana_dashboard_cctv_config:
     external: true
-    name: grafana_dashboard_cctv_config_8562e24ce420
+    name: grafana_dashboard_cctv_config_3cdb2ec96ebf
 
   gateway_nginx_cfg:
     external: true
-    name: gateway_nginx_cfg_dcd582b8132f
+    name: gateway_nginx_cfg_d53b53509a49
 
 secrets:
   grafana_admin_password:
