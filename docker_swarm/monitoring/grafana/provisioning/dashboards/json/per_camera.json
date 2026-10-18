@@ -4,7 +4,7 @@
   "tags": ["spacenorm_obj_detection"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "",
   "time": { "from": "now-6h", "to": "now" },
   "templating": {
@@ -49,16 +49,16 @@
     {
       "id": 2,
       "type": "timeseries",
-      "title": "Reconnect attempts (rate, 5m)",
+      "title": "Reconnect attempts (counts, 2m)",
       "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "rate(spacenorm_camera_reconnect_attempts_total{camera=\"$camera\"}[5m])",
+          "expr": "increase(spacenorm_camera_reconnect_attempts_total{camera=\"$camera\"}[2m])",
           "legendFormat": "{{camera}}"
         }
       ],
-      "description": "A fast-climbing rate here is the early-warning signal that was missing before the jaeil_cr fd-leak crash."
+      "description": "A fast-climbing count here is the early-warning signal that was missing before the jaeil_cr fd-leak crash."
     },
     {
       "id": 3,
@@ -89,12 +89,12 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "Detection events (rate, 5m)",
+      "title": "Detection events (counts, 2m)",
       "gridPos": { "h": 6, "w": 24, "x": 0, "y": 12 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "rate(spacenorm_detections_total{camera=\"$camera\"}[5m])",
+          "expr": "increase(spacenorm_detections_total{camera=\"$camera\"}[2m])",
           "legendFormat": "{{camera}}"
         }
       ]
