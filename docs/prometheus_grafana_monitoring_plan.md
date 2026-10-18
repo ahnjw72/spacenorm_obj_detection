@@ -170,6 +170,19 @@ selected-camera global. Request frequency is bounded by how often someone
 actually has the dashboard open and refreshing it — not continuous, which
 was the explicit requirement this design is built around.
 
+**Addendum — `/config/<camera>` (deliberate exception to §2's exclusion policy).**
+The Per-Camera dashboard's "Show configuration" button hits a second route
+on the same `:8081` process, returning the camera's RTSP URI **with its
+embedded plaintext credentials**, ROI vertices, and `min_obj_size_ratio`.
+This is a conscious, explicitly-approved exception to §2's "credentials
+never leave the app" rule — approved specifically because this is a
+request-scoped HTTP response, not a Prometheus label: it is never scraped
+on an interval, never persisted in the TSDB, and not broadcast to every
+consumer of `:9000/metrics`. It still carries no authentication of its own,
+same posture as `/snapshot/<camera>` above, and is reachable by anyone who
+can reach port 8090 — which, per §5 below, is **not** VPN-restricted.
+Accepted with that exposure understood, not because the exposure is small.
+
 ## 5. Persistence and auth (resolved)
 
 Prometheus and Grafana hold two different kinds of state with two different

@@ -130,9 +130,18 @@ services:
         # Swarm's `mode: host` port publishing does NOT support an
         # interface-specific host_ip (tried it -- `docker stack config`
         # rejects it outright: "Additional property host_ip is not
-        # allowed"). VPN-only reachability is therefore enforced at the
-        # host firewall instead, not here. See the UFW rule noted in the
-        # header comment above.
+        # allowed"), so this is NOT restricted to the VPN interface at the
+        # Swarm level. No UFW/iptables rule enforces VPN-only either --
+        # checked: no such rule exists anywhere in this repo (only
+        # cluster-discovery ports 7946/4789/2377 are handled, in
+        # worker_node_setup.sh, unrelated to this port), and this host's
+        # live firewall state was not independently confirmed as this
+        # comment was corrected. The actual decision on record is
+        # docs/prometheus_grafana_monitoring_plan.md §5: port 8090 is
+        # deliberately left reachable from BOTH the VPN and the office
+        # LAN, judged low-risk for a small trusted LAN -- not VPN-only.
+        # Do not rely on this port being VPN-gated without checking the
+        # box's actual `ufw status` first.
 
     networks:
       - monitoring
