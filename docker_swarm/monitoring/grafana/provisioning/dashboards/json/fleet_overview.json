@@ -4,69 +4,97 @@
   "tags": ["spacenorm_obj_detection"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "1m",
   "time": { "from": "now-6h", "to": "now" },
   "panels": [
     {
       "id": 1,
-      "type": "stat",
+      "type": "table",
       "title": "Up / down per site",
-      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "expr": "up{job=\"spacenorm_obj_detection\"}", "legendFormat": "{{instance}}" }
+        {
+          "expr": "sum by(instance)(up{job=\"spacenorm_obj_detection\"})",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        },
+        {
+          "expr": "sum by(instance)(spacenorm_detector_threads_expected{job=\"spacenorm_obj_detection\"} and on(instance) (up{job=\"spacenorm_obj_detection\"} == 1))",
+          "format": "table",
+          "instant": true,
+          "refId": "B"
+        },
+        {
+          "expr": "sum by(instance)(spacenorm_detector_threads_active{job=\"spacenorm_obj_detection\"} and on(instance) (up{job=\"spacenorm_obj_detection\"} == 1))",
+          "format": "table",
+          "instant": true,
+          "refId": "C"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": { "byField": "instance", "mode": "outer" }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "Time 1": true, "Time 2": true, "Time 3": true },
+            "renameByName": {
+              "instance": "site",
+              "Value #A": "status",
+              "Value #B": "expected",
+              "Value #C": "active"
+            },
+            "indexByName": { "site": 0, "status": 1, "expected": 2, "active": 3 }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": { "fields": {}, "sort": [{ "field": "site" }] }
+        }
       ],
       "fieldConfig": {
-        "defaults": {
-          "mappings": [
-            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
-          ]
-        }
-      }
-    },
-    {
-      "id": 2,
-      "type": "timeseries",
-      "title": "Active vs. expected detector threads",
-      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 4 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        { "expr": "spacenorm_detector_threads_active{job=\"spacenorm_obj_detection\"}", "legendFormat": "{{instance}} active" },
-        { "expr": "spacenorm_detector_threads_expected{job=\"spacenorm_obj_detection\"}", "legendFormat": "{{instance}} expected" }
-      ],
-      "description": "A sustained gap between active and expected is the direct, dashboard-visible version of the 2-cameras-stuck-reconnecting pattern on jaeil_cr's second NVR unit."
-    },
-    {
-      "id": 3,
-      "type": "timeseries",
-      "title": "Open file descriptors",
-      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 4 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        { "expr": "process_open_fds{job=\"spacenorm_obj_detection\"}", "legendFormat": "{{instance}}" }
-      ],
-      "description": "This is the metric that would have shown the jaeil_cr fd-leak climbing for hours before the SIGSEGV/GLib-abort crash. A steadily climbing, non-resetting trend on any one site is the thing to act on before it crashes."
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "status" },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+                ]
+              },
+              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } }
+            ]
+          }
+        ]
+      },
+      "description": "Expected/Active come from the SAME queries as the removed 'Active vs. expected detector threads' panel, now shown per-site instead of as a time series. Each is gated with 'and on(instance) (up == 1)' at the PromQL level, so a DOWN site's row has no expected/active data at all -- not a stale or zero number, genuinely absent, matching 'meaningless to show when down'. A sustained active < expected gap on an UP site is the direct, dashboard-visible version of the 2-cameras-stuck-reconnecting pattern on jaeil_cr's second NVR unit."
     },
     {
       "id": 4,
       "type": "timeseries",
       "title": "Container restarts (per site, over dashboard range)",
-      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 11 },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "changes(container_start_time_seconds{name=~\"spacenorm_obj_detection.*\"}[$__range])",
+          "expr": "changes(container_start_time_seconds{name=~\"spacenorm_obj_detection.*\"}[$__range]) and on(name) (time() - container_last_seen{name=~\"spacenorm_obj_detection.*\"} < 60)",
           "legendFormat": "{{name}}"
         }
       ],
-      "description": "Sourced from cAdvisor's container_start_time_seconds via changes() -- a new start time after a crash/restart counts as a change. cAdvisor's container name label format may need adjusting to match what a live deployment actually reports; verify against real scrape output before relying on this panel."
+      "description": "Sourced from cAdvisor's container_start_time_seconds via changes(). The 'and on(name) (... container_last_seen ... < 60)' clause keeps only the currently-alive container's series: Swarm's default task-history-limit keeps the last 5 exited task containers per service on the node, and cAdvisor keeps reporting their frozen last-known stats indefinitely -- without this filter, a site that crashed and restarted shows multiple 'spacenorm_obj_detection_<site>.<node>.<old-task-id>' series piled up on the same workernode (one live, the rest stale ghosts), none of which ever gets cleaned out of the panel. container_last_seen keeps updating (~ scrape_interval cadence) only for a container cAdvisor currently observes as running; 60s is 4x the 15s scrape_interval, comfortable margin against scrape jitter."
     },
     {
       "id": 5,
       "type": "timeseries",
       "title": "Dynamic-config freshness (seconds since last successful fetch)",
-      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 11 },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
