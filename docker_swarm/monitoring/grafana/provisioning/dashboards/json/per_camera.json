@@ -4,7 +4,7 @@
   "tags": ["spacenorm_obj_detection"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "refresh": "",
   "time": { "from": "now-6h", "to": "now" },
   "templating": {
@@ -42,9 +42,9 @@
       "gridPos": { "h": 12, "w": 12, "x": 0, "y": 0 },
       "options": {
         "mode": "html",
-        "content": "<div style=\"text-align:center\"><img src=\"/snapshot/$instance/${camera:percentencode}?t=${__to}\" style=\"max-width:100%;max-height:100%\" alt=\"snapshot unavailable\"/></div>"
+        "content": "<div style=\"text-align:center\"><img src=\"/snapshot/$instance/${camera:percentencode}?t=${__to}\" style=\"max-width:100%;max-height:100%\" alt=\"snapshot unavailable\"/><div style=\"margin-top:8px\"><a href=\"/config/$instance/${camera:percentencode}\" target=\"_blank\" rel=\"noopener\" style=\"display:inline-block;padding:4px 12px;border:1px solid #666;border-radius:4px;text-decoration:none\">Show configuration</a></div></div>"
       },
-      "description": "Captured on request, not continuously -- bytes are only (re-)fetched on dashboard load and when you click Grafana's refresh button (dashboard auto-refresh is intentionally left off). The ?t=${__to} query param is a cache-buster, not a real parameter the backend reads -- without it the <img> src string never changes between refreshes, so neither Grafana's panel re-render nor the browser would have any reason to issue a new request at all (a stale image would keep displaying with no error, since this is independent of HTTP cache headers). ${__to} is Grafana's built-in time-range-end variable, which updates on every manual refresh and page load. Routed through the nginx gateway (same origin as this dashboard page, not a direct Swarm-internal hostname -- a browser can't resolve those). See docs/prometheus_grafana_monitoring_plan.md §4."
+      "description": "Captured on request, not continuously -- bytes are only (re-)fetched on dashboard load and when you click Grafana's refresh button (dashboard auto-refresh is intentionally left off). The ?t=${__to} query param is a cache-buster, not a real parameter the backend reads -- without it the <img> src string never changes between refreshes, so neither Grafana's panel re-render nor the browser would have any reason to issue a new request at all (a stale image would keep displaying with no error, since this is independent of HTTP cache headers). ${__to} is Grafana's built-in time-range-end variable, which updates on every manual refresh and page load. Routed through the nginx gateway (same origin as this dashboard page, not a direct Swarm-internal hostname -- a browser can't resolve those). See docs/prometheus_grafana_monitoring_plan.md §4.\n\n'Show configuration' opens /config/$instance/<camera> (new tab) -- RTSP URI WITH its embedded plaintext credentials, ROI vertices, and min_obj_size_ratio. No authentication beyond the gateway's camera-name allowlist (same as the snapshot image above); the gateway's published port is firewalled to VPN-only at the host (see stack_monitoring.yml's gateway service comment), which is the actual access boundary for this data, not anything in Grafana or nginx."
     },
     {
       "id": 2,

@@ -15,6 +15,7 @@ faulthandler.dump_traceback_later(60, repeat=True)
 import os, subprocess, threading
 import time
 import datetime
+import html
 import logging
 import logging.handlers as handlers
 import copy
@@ -142,6 +143,43 @@ def snapshot(camera):
         return Response("failed to encode snapshot", status=500)
 
     return Response(encoded.tobytes(), mimetype='image/jpeg')
+
+
+@app.route("/config/<path:camera>")
+def camera_config(camera):
+    """On-demand configuration info for one camera: RTSP URI (with its
+    embedded credentials), ROI vertices, and min_obj_size_ratio. Backs the
+    'Per-Camera' dashboard's "Show configuration" button.
+
+    Deliberately NOT a Prometheus metric: spacenorm_camera_info excludes
+    credentials and the raw URI because a Prometheus label is scraped on a
+    fixed interval and stored indefinitely in the TSDB, visible to every
+    consumer of :9000/metrics forever (see
+    docs/prometheus_grafana_monitoring_plan.md §2). This route returns the
+    info only when requested and persists nothing -- a narrower exposure,
+    but still no authentication beyond the monitoring gateway's camera-name
+    allowlist (the same trust posture /snapshot/<camera> above already
+    has). Reachable only through whatever network boundary gates the
+    monitoring gateway itself.
+    """
+    entry = cctv_ID.get(camera)
+    if entry is None:
+        return Response(f"unknown camera: {camera}", status=404)
+
+    roi = entry.get('ROI')
+    roi_vertices = roi.get('vertices') if roi else None
+    min_obj_size_ratio = entry.get('min_obj_size_ratio')
+
+    lines = [
+        f"camera: {camera}",
+        f"RTSP URI: {entry.get('uri', '(not set)')}",
+        f"ROI vertices: {roi_vertices if roi_vertices is not None else '(none)'}",
+    ]
+    if min_obj_size_ratio is not None:
+        lines.append(f"min_obj_size_ratio: {min_obj_size_ratio}")
+
+    body = "\n".join(html.escape(line) for line in lines)
+    return Response(f"<pre>{body}</pre>", mimetype='text/html')
 
 
 PKG_NAME = Path(__file__).parent.name
