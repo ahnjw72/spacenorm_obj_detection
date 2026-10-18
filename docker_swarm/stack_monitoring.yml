@@ -251,7 +251,7 @@ configs:
 
   grafana_dashboard_cctv_config:
     external: true
-    name: grafana_dashboard_cctv_config_3cdb2ec96ebf
+    name: grafana_dashboard_cctv_config_5cdd51bb2fa3
 
   gateway_nginx_cfg:
     external: true
