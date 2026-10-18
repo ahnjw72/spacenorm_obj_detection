@@ -98,7 +98,7 @@ dead `:9000`), plus:
 |---|---|---|---|
 | `spacenorm_detector_threads_active` | Gauge | — | Live detector thread count |
 | `spacenorm_detector_threads_expected` | Gauge | — | Sensor count from config; gap vs. active = stuck/failed cameras |
-| `spacenorm_camera_connected` | Gauge (0/1) | `camera` | Per-camera RTSP connection state |
+| `spacenorm_camera_status` | Gauge, always `1` | `camera`, `status` | Current status category for the camera: `connected`, or the specific reason it isn't (`rtsp_unreachable`, `credential_unresolved`, `no_private_url`, `unknown_cctv_id`, `vision_node_not_found`, `excluded_test_filter`). Exactly one status is ever active per camera at a time (old label removed before the new one is set), covering both runtime RTSP connectivity and dynamic-config validation outcomes under one field, so the CCTV configuration table in §6 can show every sensor the VisionNode API maps to this deployment, with a cause for each one that isn't green. |
 | `spacenorm_camera_last_frame_timestamp` | Gauge | `camera` | Epoch of last successfully grabbed frame — staleness alerting, stronger signal than "thread alive" |
 | `spacenorm_camera_reconnect_attempts_total` | Counter | `camera` | The signal that was missing before the fd-leak crash — a fast-climbing counter on one camera is the early warning |
 | `spacenorm_detections_total` | Counter | `camera` | Cumulative occupancy-report events |

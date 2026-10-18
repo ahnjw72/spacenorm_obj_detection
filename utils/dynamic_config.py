@@ -67,6 +67,22 @@ _CHANGE_TRACKED_FIELDS = ('ROI', 'min_obj_size_ratio', 'mqtt_broker_addr', 'mqtt
 # since detector_per_cam() re-reads cctv_ID[key] every loop iteration.
 _RESTART_REQUIRED_FIELDS = ('uri', 'mqtt_broker_addr', 'mqtt_broker_port')
 
+# Fixed, bounded set of status categories fetch_dynamic_config() reports for
+# every sensor it sees -- not just the ones that became a runnable cctv_ID
+# entry. The CCTV configuration dashboard colors/filters on this label, so
+# it stays a small enum rather than a free-text message (an unbounded label
+# value is a Prometheus cardinality hazard). Human-readable detail for a
+# given failure goes in the log line next to each status assignment below;
+# STATUS_CONNECTED is assigned elsewhere, once the detector thread actually
+# has a frame (see spacenorm_obj_detection.py's set_camera_status() calls).
+STATUS_CONNECTED = 'connected'
+STATUS_RTSP_UNREACHABLE = 'rtsp_unreachable'
+STATUS_CREDENTIAL_UNRESOLVED = 'credential_unresolved'
+STATUS_NO_PRIVATE_URL = 'no_private_url'
+STATUS_UNKNOWN_CCTV_ID = 'unknown_cctv_id'
+STATUS_VISION_NODE_NOT_FOUND = 'vision_node_not_found'
+STATUS_EXCLUDED_TEST_FILTER = 'excluded_test_filter'
+
 
 def inject_rtsp_credentials(url, username, password):
     """Embed the given RTSP credentials into a credential-less private_url.
@@ -126,6 +142,38 @@ def resolve_rtsp_uri(key, private_url, candidates=RTSP_CREDENTIAL_CANDIDATES, ti
     logger.warning(f"[{key}] RTSP credential probe: none of the {len(candidates)} "
                    "candidate credentials authenticated -- will retry next refresh cycle")
     return None
+
+
+def _best_effort_key(company_name, cctv, sensor):
+    """Return a dashboard row key for a sensor that failed validation before
+    build_cctv_entry() could run, using the same "<company_name>_<desc-or-id>"
+    scheme when enough data resolved to use it -- so a camera that starts out
+    failing and later succeeds keeps the same row instead of appearing twice.
+    Degrades to a sensor-identified placeholder when company_name and/or cctv
+    themselves are what's missing (unknown_cctv_id / vision_node_not_found),
+    in which case the key necessarily changes once the sensor resolves.
+    """
+    company = company_name or f"vn{sensor.get('vision_node_id', 'unknown')}"
+    if cctv is not None and cctv.get('desc'):
+        return f"{company}_{cctv['desc']}"
+    if cctv is not None:
+        return f"{company}_{cctv['id']}"
+    return f"{company}_sensor{sensor.get('device_id', sensor.get('sensor_id', 'unknown'))}"
+
+
+def _status_info_fields(sensor, company_name, user_group_index):
+    """Best-effort spacenorm_camera_info fields for a sensor that failed
+    validation before build_cctv_entry() -- whatever the sensor record
+    itself carries, independent of how far parsing got. Shaped to match
+    what _publish_camera_info() in spacenorm_obj_detection.py reads off a
+    cctv_ID-style entry, so it can be reused unchanged for failure rows.
+    """
+    return {
+        'device_id': sensor.get('device_id'),
+        'company_name': company_name or '',
+        'user_group_index': user_group_index,
+        'vision_node_id': sensor.get('vision_node_id'),
+    }
 
 
 def build_cctv_entry(company_name, sensor, cctv, access_token, user_group_index):
@@ -202,15 +250,28 @@ def fetch_dynamic_config(cfg):
     A group that fails to fetch or parse is logged and skipped; the site
     continues with whichever groups succeeded rather than losing all
     coverage because one group's token or network had an issue. Returns
-    None only when every group failed (nothing to merge) or cfg.user_groups
-    is empty -- callers should treat None as "retry next period".
+    (None, {}) only when every group failed (nothing to merge) or
+    cfg.user_groups is empty -- callers should treat a None first element as
+    "retry next period".
+
+    Returns (result, statuses): `result` is {key: entry} for every sensor
+    that became a runnable cctv_ID entry, unchanged from before this
+    function also tracked failures. `statuses` is {key: (status, info_fields)}
+    for every OTHER sensor seen this fetch that didn't make it into `result`
+    -- excluded by the test_device_ids dev filter, an unresolvable cctv_id,
+    a missing private_url, an unresolvable vision_node, or an RTSP
+    credential probe that exhausted every candidate. This is what lets the
+    CCTV configuration dashboard show every sensor the VisionNode API maps
+    to this deployment, not just the ones currently running, with a cause
+    for each one that isn't.
     """
     if not cfg.user_groups:
         logger.warning("cfg.user_groups is empty -- nothing to fetch in dynamic config method")
-        return None
+        return None, {}
 
     test_device_ids = getattr(cfg, 'test_device_ids', None)
     result = {}
+    statuses = {}
     any_group_succeeded = False
 
     for user_group_index, group in enumerate(cfg.user_groups):
@@ -242,28 +303,39 @@ def fetch_dynamic_config(cfg):
             for sensor in sensors:
                 sensor_node_id = sensor.get('vision_node_id')
                 if sensor_node_id not in group_vision_node_ids:
-                    continue # belongs to a vision node not in this group's configured list
+                    continue # belongs to a vision node not in this group's configured list -- not in this deployment's scope at all, not even a failure row
+
+                company_name = company_name_by_node.get(sensor_node_id)
 
                 if test_device_ids and sensor['device_id'] not in test_device_ids:
+                    key = _best_effort_key(company_name, cctvs_by_id.get(sensor.get('cctv_id')), sensor)
+                    statuses[key] = (STATUS_EXCLUDED_TEST_FILTER, _status_info_fields(sensor, company_name, user_group_index))
                     continue
 
                 cctv = cctvs_by_id.get(sensor['cctv_id'])
                 if cctv is None:
-                    logger.warning(f"sensor {sensor.get('sensor_id')} references unknown cctv_id {sensor.get('cctv_id')} -- skipping")
+                    logger.warning(f"sensor {sensor.get('sensor_id')} references unknown cctv_id {sensor.get('cctv_id')} -- marking unknown_cctv_id")
+                    key = _best_effort_key(company_name, None, sensor)
+                    statuses[key] = (STATUS_UNKNOWN_CCTV_ID, _status_info_fields(sensor, company_name, user_group_index))
                     continue
 
                 if not cctv.get('private_url'):
-                    logger.warning(f"sensor {sensor.get('sensor_id')} / cctv {cctv.get('id')} has no private_url -- skipping")
+                    logger.warning(f"sensor {sensor.get('sensor_id')} / cctv {cctv.get('id')} has no private_url -- marking no_private_url")
+                    key = _best_effort_key(company_name, cctv, sensor)
+                    statuses[key] = (STATUS_NO_PRIVATE_URL, _status_info_fields(sensor, company_name, user_group_index))
                     continue
 
-                company_name = company_name_by_node.get(sensor_node_id)
                 if company_name is None:
-                    logger.warning(f"sensor {sensor.get('sensor_id')} references vision_node_id {sensor_node_id} not present in vision_nodes list -- skipping")
+                    logger.warning(f"sensor {sensor.get('sensor_id')} references vision_node_id {sensor_node_id} not present in vision_nodes list -- marking vision_node_not_found")
+                    key = _best_effort_key(None, cctv, sensor)
+                    statuses[key] = (STATUS_VISION_NODE_NOT_FOUND, _status_info_fields(sensor, None, user_group_index))
                     continue
 
                 key, entry = build_cctv_entry(company_name, sensor, cctv, access_token, user_group_index)
                 if entry is None:
-                    continue # RTSP credential probe exhausted all candidates -- retry next refresh
+                    # RTSP credential probe exhausted all candidates -- retry next refresh
+                    statuses[key] = (STATUS_CREDENTIAL_UNRESOLVED, _status_info_fields(sensor, company_name, user_group_index))
+                    continue
                 result[key] = entry
 
             any_group_succeeded = True
@@ -272,11 +344,11 @@ def fetch_dynamic_config(cfg):
             continue
 
     if not any_group_succeeded:
-        return None
+        return None, {}
 
     dynamic_config_last_fetch_timestamp.set(time.time())
     dynamic_config_sensors_active.set(len(result))
-    return result
+    return result, statuses
 
 
 def diff_configs(old, new):

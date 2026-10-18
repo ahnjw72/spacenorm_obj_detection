@@ -4,7 +4,7 @@
   "tags": ["spacenorm_obj_detection"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "5m",
   "time": { "from": "now-5m", "to": "now" },
   "panels": [
@@ -16,7 +16,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "spacenorm_camera_info * on(camera) group_left() spacenorm_camera_connected",
+          "expr": "spacenorm_camera_info * on(camera) group_left(status) spacenorm_camera_status",
           "format": "table",
           "instant": true
         }
@@ -29,16 +29,14 @@
               "Time": true,
               "__name__": true,
               "instance": true,
-              "job": true
-            },
-            "renameByName": {
-              "Value": "connected"
+              "job": true,
+              "Value": true
             },
             "indexByName": {
               "user_group_index": 0,
               "vision_node_id": 1,
               "camera": 2,
-              "connected": 3,
+              "status": 3,
               "company_name": 4,
               "config_method": 5,
               "device_id": 6,
@@ -81,12 +79,23 @@
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "connected" },
+            "matcher": { "id": "byName", "options": "status" },
             "properties": [
               {
                 "id": "mappings",
                 "value": [
-                  { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+                  {
+                    "type": "value",
+                    "options": {
+                      "connected": { "text": "CONNECTED", "color": "green" },
+                      "rtsp_unreachable": { "text": "RTSP UNREACHABLE", "color": "red" },
+                      "credential_unresolved": { "text": "CREDENTIALS UNRESOLVED", "color": "red" },
+                      "no_private_url": { "text": "NO PRIVATE URL", "color": "red" },
+                      "unknown_cctv_id": { "text": "UNKNOWN CCTV ID", "color": "red" },
+                      "vision_node_not_found": { "text": "VISION NODE NOT FOUND", "color": "red" },
+                      "excluded_test_filter": { "text": "EXCLUDED (TEST FILTER)", "color": "orange" }
+                    }
+                  }
                 ]
               },
               { "id": "custom.displayMode", "value": "color-background" }
@@ -94,7 +103,7 @@
           }
         ]
       },
-      "description": "Backed by spacenorm_camera_info joined with spacenorm_camera_connected on the camera label (PromQL: info * on(camera) group_left() connected -- verified live that this keeps info's full label set with connected's 0/1 as the resulting value, rather than a Grafana frontend join transform, which cannot be tested without a browser). Sorted by user_group_index -> vision_node_id -> camera to read as the user_groups -> vision_nodes -> CCTVs hierarchy defined in each site's overrides json file (static-method cameras have no user_group/vision_node, so they sort first with blank values). user_group_index/vision_node_id are string labels, so sort order is lexicographic, not numeric -- fine at this project's single-digit scale, worth revisiting if group/node counts grow past 9. Credentials and raw RTSP URIs are deliberately never in these metrics (see docs/prometheus_grafana_monitoring_plan.md §2). Click a camera to open its per-camera dashboard (reconnect rate, last-frame age, detection history, live snapshot)."
+      "description": "Backed by spacenorm_camera_info joined with spacenorm_camera_status on the camera label (PromQL: info * on(camera) group_left(status) status -- group_left(status) copies the status label from the right side onto the joined row; the multiplication's numeric result is always 1 and is excluded from display). Shows every CCTV the VisionNode API maps to this deployment's sensors, not just the ones currently running: a sensor that fails anywhere in the dynamic-config validation pipeline (unresolvable cctv_id, missing private_url, unresolvable vision_node, exhausted RTSP credential probe) still gets a row, red, with the specific cause as its status text, instead of silently being dropped from the table. 'EXCLUDED (TEST FILTER)' is this project's own test_device_ids dev-scoping knob, not a camera problem -- shown separately in orange so it isn't read as a failure. A camera whose identity could not be fully resolved (unknown_cctv_id / vision_node_not_found) is keyed by a sensor-based placeholder rather than its eventual company/cctv name, so its row's key -- and therefore its row -- changes once that sensor resolves; this is unavoidable without knowing the real identity ahead of time. Sorted by user_group_index -> vision_node_id -> camera to read as the user_groups -> vision_nodes -> CCTVs hierarchy defined in each site's overrides json file (static-method cameras have no user_group/vision_node, so they sort first with blank values). user_group_index/vision_node_id are string labels, so sort order is lexicographic, not numeric -- fine at this project's single-digit scale, worth revisiting if group/node counts grow past 9. Credentials and raw RTSP URIs are deliberately never in these metrics (see docs/prometheus_grafana_monitoring_plan.md §2). Click a camera to open its per-camera dashboard (reconnect rate, last-frame age, detection history, live snapshot)."
     }
   ]
 }

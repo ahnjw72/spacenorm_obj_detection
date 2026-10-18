@@ -18,8 +18,6 @@ detector_threads_active = Gauge(
 detector_threads_expected = Gauge(
     'spacenorm_detector_threads_expected', 'Expected sensor count from config')
 
-camera_connected = Gauge(
-    'spacenorm_camera_connected', 'Per-camera RTSP connection state (0/1)', ['camera'])
 camera_last_frame_timestamp = Gauge(
     'spacenorm_camera_last_frame_timestamp', 'Epoch of last successfully grabbed frame', ['camera'])
 camera_reconnect_attempts_total = Counter(
@@ -56,6 +54,22 @@ camera_info = Gauge(
 # stale one before registering the new one.
 _camera_info_label_cache = {}
 _camera_info_lock = threading.Lock()
+
+# Overall per-camera status, covering both config-validation outcomes (e.g.
+# a dynamic-mode sensor whose cctv_id doesn't resolve, or whose RTSP
+# credentials can't be probed) and runtime RTSP connectivity -- the full set
+# of reasons a camera can be something other than "working", as one value
+# per camera at a time. `status` is a small fixed enum (see
+# utils/dynamic_config.py's STATUS_* constants), not a free-text message, so
+# this stays an "info metric" with bounded cardinality regardless of fleet
+# size -- same pattern as camera_info above, and the same remove-stale-label
+# problem, since only one status is ever current for a given camera.
+camera_status = Gauge(
+    'spacenorm_camera_status', 'Current status category for this camera (value always 1)',
+    ['camera', 'status'])
+
+_camera_status_label_cache = {}
+_camera_status_lock = threading.Lock()
 
 
 def start_metrics_server(port):
@@ -95,11 +109,28 @@ def remove_camera_info(camera):
             camera_info.remove(*previous)
 
 
+def set_camera_status(camera, status):
+    with _camera_status_lock:
+        previous = _camera_status_label_cache.get(camera)
+        if previous is not None and previous != status:
+            camera_status.remove(camera, previous)
+        camera_status.labels(camera=camera, status=status).set(1)
+        _camera_status_label_cache[camera] = status
+
+
+def remove_camera_status(camera):
+    with _camera_status_lock:
+        previous = _camera_status_label_cache.pop(camera, None)
+        if previous is not None:
+            camera_status.remove(camera, previous)
+
+
 def remove_camera_metrics(camera):
     """Drop every per-camera label series for `camera`. Call when a sensor
     is removed in dynamic mode, so stale series don't linger forever."""
     remove_camera_info(camera)
-    for metric in (camera_connected, camera_last_frame_timestamp,
+    remove_camera_status(camera)
+    for metric in (camera_last_frame_timestamp,
                    camera_reconnect_attempts_total, detections_total, mqtt_connected):
         try:
             metric.remove(camera)

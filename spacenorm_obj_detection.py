@@ -40,11 +40,14 @@ SETTINGS.update({'sync': False})
 
 from .utils.yolo_inference import make_yolo_annotation_file, create_yolo_model, yolo_inference_image, record_detection_result
 from .utils.config_loader import SpacenormConfigLoader
-from .utils.dynamic_config import fetch_dynamic_config, diff_configs, requires_thread_restart, save_and_upload_snapshot, forget_snapshot_state
+from .utils.dynamic_config import (
+    fetch_dynamic_config, diff_configs, requires_thread_restart, save_and_upload_snapshot, forget_snapshot_state,
+    STATUS_CONNECTED, STATUS_RTSP_UNREACHABLE,
+)
 from .utils.metrics import (
     start_metrics_server, detector_threads_active, detector_threads_expected,
-    camera_connected, camera_last_frame_timestamp, detections_total, mqtt_connected,
-    set_camera_info, remove_camera_metrics,
+    camera_last_frame_timestamp, detections_total, mqtt_connected,
+    set_camera_info, set_camera_status, remove_camera_metrics,
 )
 
 import urllib.parse
@@ -54,6 +57,14 @@ SNAPSHOT_PORT = 8081
 
 cctv_ID = {}
 RTSP_Camera_dict = {}
+
+# dynamic-method only: keys from the most recent fetch_dynamic_config() call
+# that failed validation and so never entered cctv_ID. Lets
+# dynamic_config_refresh_loop() tell "still failing" (key reappears in the
+# new fetch's failure set) apart from "sensor dropped out of the API
+# response entirely" (key disappears from both cctv_ID and the failure set),
+# so the latter's dashboard row can be cleared instead of left stale.
+previous_failed_keys = set()
 
 # dynamic-method only: key -> {'thread': Thread, 'stop_event': Event, 'cam': RTSP_Camera}
 detector_registry = {}
@@ -304,12 +315,12 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
         img = cam.read()
 
         if img is None:
-            camera_connected.labels(camera=key).set(0)
+            set_camera_status(key, STATUS_RTSP_UNREACHABLE)
             logger.error(f"[{key}] cam.read() to return None --> retry to read() after short sleep")
             time.sleep(1.0)  # Short sleep before retrying
             continue
 
-        camera_connected.labels(camera=key).set(1)
+        set_camera_status(key, STATUS_CONNECTED)
         camera_last_frame_timestamp.labels(camera=key).set(time.time())
 
         (H, W) = img.shape[:2]
@@ -571,6 +582,23 @@ def _publish_camera_info(key, entry, config_method):
     )
 
 
+def _publish_failed_statuses(failed_statuses, config_method):
+    """Publish spacenorm_camera_info + spacenorm_camera_status for every
+    sensor fetch_dynamic_config() could not turn into a runnable cctv_ID
+    entry this cycle, so the CCTV configuration dashboard shows every
+    sensor the VisionNode API maps to this deployment -- not just the ones
+    currently running -- with a cause for each one that isn't.
+
+    `_publish_camera_info` reads an entry via .get(..., default) for every
+    optional field, so the info_fields dict built by
+    dynamic_config._status_info_fields() (a strict subset of a real
+    cctv_ID entry's keys) is accepted unchanged.
+    """
+    for key, (status, info_fields) in failed_statuses.items():
+        _publish_camera_info(key, info_fields, config_method)
+        set_camera_status(key, status)
+
+
 def _build_per_key_args(args, key):
     """Return a per-key copy of `args` with spacenorm_device_key set to `key`.
 
@@ -590,6 +618,13 @@ def _spawn_detector(key, args_for_key, ctx):
     dynamic) and dynamic_config_refresh_loop()'s add-path. `ctx` bundles
     model/imgsz/vis/yolo_lock/detect_csv_writer/detect_csv_writer_lock.
     """
+    # RTSP_Camera.__init__() opens the stream synchronously and can block for
+    # the full connect timeout, so mark the camera as not-yet-connected
+    # before that call -- otherwise a camera stuck opening a stream has no
+    # spacenorm_camera_status series at all yet, and is invisible on the
+    # dashboard (the info/status join finds nothing to match) rather than
+    # shown red.
+    set_camera_status(key, STATUS_RTSP_UNREACHABLE)
     cam = RTSP_Camera(args_for_key, cctv_ID)
     RTSP_Camera_dict[key] = cam
 
@@ -646,10 +681,11 @@ def dynamic_config_refresh_loop(cfg, ctx):
     cfg.config_method == "dynamic"; config_renew_period is meaningless in
     static method.
     """
+    global previous_failed_keys
     retry_period_sec = 30
 
     while True:
-        new_cfg = fetch_dynamic_config(cfg)
+        new_cfg, failed_statuses = fetch_dynamic_config(cfg)
         if new_cfg is None:
             logger.error(f"dynamic_config_refresh_loop: fetch failed -- retrying in {retry_period_sec}s")
             time.sleep(retry_period_sec)
@@ -682,6 +718,20 @@ def dynamic_config_refresh_loop(cfg, ctx):
                 _spawn_detector(key, _build_per_key_args(cfg, key), ctx)
             else:
                 logger.info(f"[{key}] ROI/min_obj_size_ratio updated in place (no restart needed)")
+
+        _publish_failed_statuses(failed_statuses, "dynamic")
+
+        # A key that was failing validation last cycle and is failing again
+        # (or has since succeeded, moving into new_cfg) stays as-is here --
+        # only a key that's gone from BOTH this cycle's failures and new_cfg
+        # has actually dropped out of the API response entirely, and needs
+        # its dashboard row cleared rather than left stale.
+        gone_failed_keys = previous_failed_keys - set(failed_statuses) - set(new_cfg)
+        for key in gone_failed_keys:
+            logger.info(f"[{key}] no longer present in dynamic config (was failing validation) -- clearing dashboard row")
+            remove_camera_metrics(key)
+
+        previous_failed_keys = set(failed_statuses)
 
         for key in list(cctv_ID.keys()):
             cam = RTSP_Camera_dict.get(key)
@@ -778,13 +828,15 @@ def detector_YOLO_multithreaded(args):
     config_method = getattr(args, "config_method", "static")
 
     if config_method == "dynamic":
-        dynamic_cfg = fetch_dynamic_config(args)
+        dynamic_cfg, failed_statuses = fetch_dynamic_config(args)
         if dynamic_cfg is None:
             logger.error("ERROR: initial dynamic config fetch failed -- cannot start without an initial sensor set")
             sys.exit(1)
         cctv_ID.update(dynamic_cfg)
         for key, entry in dynamic_cfg.items():
             _publish_camera_info(key, entry, "dynamic")
+        _publish_failed_statuses(failed_statuses, "dynamic")
+        previous_failed_keys.update(failed_statuses)
         args_dict = {key: _build_per_key_args(args, key) for key in dynamic_cfg}
     else:
         if not getattr(args, "spacenorm_devicekey_file", None):
