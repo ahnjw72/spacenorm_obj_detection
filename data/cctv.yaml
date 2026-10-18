@@ -2,8 +2,8 @@
 # train: data/train_cctv
 # val: data/val_cctv
 path: .
-train: data/cctv_train_data/train_test_txts/train_01_to_0151.txt
-val: data/cctv_train_data/train_test_txts/test_01_to_0151.txt
+train: data/cctv_train_data/train_test_txts/train_01_to_0152.txt
+val: data/cctv_train_data/train_test_txts/test_01_to_0152.txt
 
 # number of classes
 nc: 7 
