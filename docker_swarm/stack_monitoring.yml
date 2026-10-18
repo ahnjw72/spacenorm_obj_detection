@@ -252,11 +252,11 @@ configs:
 
   grafana_dashboard_fleet:
     external: true
-    name: grafana_dashboard_fleet_546cadf2b493
+    name: grafana_dashboard_fleet_b48e9f629f14
 
   grafana_dashboard_per_camera:
     external: true
-    name: grafana_dashboard_per_camera_66130b7b95dc
+    name: grafana_dashboard_per_camera_d3f72dd6ae6c
 
   grafana_dashboard_cctv_config:
     external: true
@@ -264,7 +264,7 @@ configs:
 
   gateway_nginx_cfg:
     external: true
-    name: gateway_nginx_cfg_d53b53509a49
+    name: gateway_nginx_cfg_4818772a21a2
 
 secrets:
   grafana_admin_password:
