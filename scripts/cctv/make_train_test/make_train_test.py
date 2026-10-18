@@ -11,7 +11,7 @@ BASE_DIR = "/home/ahnjw/Work/spacenorm_obj_detection/data/cctv_train_data"
 SET_LIST = []
 
 SET_START_NUM = 1
-SET_END_NUM = 151
+SET_END_NUM = 152
 
 def is_test(set_name, image_name):
     """Deterministic per-image train/test assignment.
