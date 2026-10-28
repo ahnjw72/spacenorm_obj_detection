@@ -1,223 +1,172 @@
 #!/usr/bin/env bash
 # After running this script, verify deployment with:
-#  $ docker service ls
-#  $ docker service ps spacenorm_detector
-#  $ docker service logs -f spacenorm_detector
+#  $ docker stack services spacenorm_obj_detection
+#  $ docker service ps spacenorm_obj_detection_<service_name>
+#  $ docker service logs -f spacenorm_obj_detection_<service_name>
 #
-# Remove the container on the worker node
-#  $ docker service rm spacenorm_detector
+# Remove one service from the stack
+#  $ docker service rm spacenorm_obj_detection_<service_name>
 #
 # Remove the whole stack
-#  $ docker stack rm spacenorm
-# 
-# Restart the stack
-# $ docker service update --force spacenorm_detector
+#  $ docker stack rm spacenorm_obj_detection
+#
+# Restart a service
+#  $ docker service update --force spacenorm_obj_detection_<service_name>
 
 set -euo pipefail
 
-SERVICE_GROUP1=("cym" "kumho" "kumho_car" "yujin" "jaeil_io")
-SERVICE_GROUP2=("jaeil_cr")
+VALID_SERVICES=("cym" "kumho" "kumho_car" "yujin" "jaeil_io" "jaeil_cr")
 
 if [ $# -eq 0 ]; then
-    echo "Usage: $0 [service_name]"
+    echo "Usage: $0 <service_name|all>"
+    echo "Valid services: ${VALID_SERVICES[*]}"
     exit 1
 fi
 
-export SERVICE_NAME=$1
+TARGET=$1
 
-# Validate server name against known groups
-if ! [[ " ${SERVICE_GROUP1[*]} ${SERVICE_GROUP2[*]} " =~ " ${SERVICE_NAME} " ]]; then
-    echo "Error: Server '$SERVICE_NAME' is not in any known group."
-    echo "Valid servers in GROUP1: ${SERVICE_GROUP1[*]}"
-    echo "Valid servers in GROUP2: ${SERVICE_GROUP2[*]}"
+if [ "${TARGET}" == "all" ]; then
+    SERVICES_TO_DEPLOY=("${VALID_SERVICES[@]}")
+elif [[ " ${VALID_SERVICES[*]} " =~ " ${TARGET} " ]]; then
+    SERVICES_TO_DEPLOY=("${TARGET}")
+else
+    echo "Error: Server '${TARGET}' is not in VALID_SERVICES."
+    echo "Valid services: ${VALID_SERVICES[*]}"
     exit 1
 fi
 
 AWS_REGION="ap-northeast-2"
-#IMAGE_TAG="latest"
 IMAGE_TAG="cu128"
+REPOSITORY_NAME="spacenorm_obj_detection"
 
-LOGIN_PASSWORD=$(aws ecr get-login-password --region "${AWS_REGION}")
-if [ $? -ne 0 ]; then
+LOGIN_PASSWORD=$(aws ecr get-login-password --region "${AWS_REGION}") || {
     echo "Failed to retrieve ECR login password for ${AWS_REGION}" >&2
     exit 1
-fi
+}
 
-echo "$LOGIN_PASSWORD" | docker login --username AWS --password-stdin 159552820182.dkr.ecr.${AWS_REGION}.amazonaws.com
-if [ $? -ne 0 ]; then
+echo "${LOGIN_PASSWORD}" | docker login --username AWS --password-stdin "159552820182.dkr.ecr.${AWS_REGION}.amazonaws.com" || {
     echo "Docker login to ECR failed" >&2
     exit 1
-fi
-# echo "ECR login succeeded"
+}
 
-if [[ " ${SERVICE_GROUP1[*]} " =~ " ${SERVICE_NAME} " ]]; then
-    REPOSITORY_NAME="spacenorm_obj_detection"
-    IMG_DIGEST=$(aws ecr describe-images \
-      --region "${AWS_REGION}" \
-      --repository-name "$REPOSITORY_NAME" \
-      --image-ids imageTag="$IMAGE_TAG" \
-      --query 'imageDetails[0].imageDigest' \
-      --output text)
-    export DOCKER_IMAGE="159552820182.dkr.ecr."${AWS_REGION}".amazonaws.com/${REPOSITORY_NAME}@${IMG_DIGEST}"
-    #export DOCKER_IMAGE="ahnjw72/spacenorm_obj_detection:cu128"
-    echo "DOCKER_IMAGE is set to: ${DOCKER_IMAGE}"
-elif [[ " ${SERVICE_GROUP2[*]} " =~ " ${SERVICE_NAME} " ]]; then
-    # export DOCKER_IMAGE="ahnjw72/spacenorm_obj_detection_blackwell:latest"
-
-    # REPOSITORY_NAME="spacenorm_obj_detection_blackwell"
-    # IMAGE_TAG="latest"
-
-    REPOSITORY_NAME="spacenorm_obj_detection"
-
-    IMG_DIGEST=$(aws ecr describe-images \
-      --region "${AWS_REGION}" \
-      --repository-name "$REPOSITORY_NAME" \
-      --image-ids imageTag="$IMAGE_TAG" \
-      --query 'imageDetails[0].imageDigest' \
-      --output text)
-    export DOCKER_IMAGE="159552820182.dkr.ecr."${AWS_REGION}".amazonaws.com/${REPOSITORY_NAME}@${IMG_DIGEST}"
-    #export DOCKER_IMAGE="ahnjw72/spacenorm_obj_detection:cu128"
-    echo "DOCKER_IMAGE is set to: ${DOCKER_IMAGE}"
-else
-    echo "Error: '${SERVICE_NAME}' is not a valid server name for spacenorm_obj_detection service."
-    exit 1
-fi
+IMG_DIGEST=$(aws ecr describe-images \
+  --region "${AWS_REGION}" \
+  --repository-name "${REPOSITORY_NAME}" \
+  --image-ids imageTag="${IMAGE_TAG}" \
+  --query 'imageDetails[0].imageDigest' \
+  --output text)
+export DOCKER_IMAGE="159552820182.dkr.ecr.${AWS_REGION}.amazonaws.com/${REPOSITORY_NAME}@${IMG_DIGEST}"
+echo "[INFO] DOCKER_IMAGE is set to: ${DOCKER_IMAGE}"
 
 CFG_BASE_DIR="/home/ahnjw/Work/spacenorm_obj_detection/spacenorm_cfg"
 export CFG_BASE_DIR_IN_CONTAINER="/app/spacenorm_obj_detection/spacenorm_cfg"
 STACK_NAME="spacenorm_obj_detection"
 TEMPLATE="stack.yml.template"
-RENDERED="stack_${SERVICE_NAME}.yml"
 
-# Configuration files for a server ========================================
-# export SERVER="${SERVICE_NAME}"
-DEFAULT_CFG="${CFG_BASE_DIR}/behavior/default.json"
-OVERRIDE_CFG="${CFG_BASE_DIR}/behavior/overrides/${SERVICE_NAME}.json"
-CCTV_CFG="${CFG_BASE_DIR}/cctv/cctv_${SERVICE_NAME}.json"
-CCTV_KEY="${CFG_BASE_DIR}/cctv/cctv_${SERVICE_NAME}.keys"
-# ==========================================================================
+# Computes a content-hash config name, creates the docker config if missing,
+# and prints the resulting name on stdout (progress lines go to stderr so
+# they don't pollute the captured name).
+register_config() {
+    local name_prefix=$1 file_path=$2
+    local hash name
+    hash="$(sha256sum "${file_path}" | awk '{print substr($1,1,12)}')"
+    name="${name_prefix}_${hash}"
+    if ! docker config inspect "${name}" >/dev/null 2>&1; then
+        docker config create "${name}" "${file_path}" >/dev/null
+        echo "[OK] Created config: ${name}" >&2
+    else
+        echo "[OK] Config exists: ${name}" >&2
+    fi
+    echo "${name}"
+}
 
-# Compute hash for each config file
-DEFAULT_CFG_HASH="$(sha256sum "${DEFAULT_CFG}" | awk '{print substr($1,1,12)}')"
-export DEFAULT_CFG_NAME="default_cfg_${DEFAULT_CFG_HASH}"
+deploy_service() {
+    local service_name=$1
+    export SERVICE_NAME="${service_name}"
+    local rendered="stack_${service_name}.yml"
 
-OVERRIDE_CFG_HASH="$(sha256sum "${OVERRIDE_CFG}" | awk '{print substr($1,1,12)}')"
-export OVERRIDE_CFG_NAME="${SERVICE_NAME}_override_cfg_${OVERRIDE_CFG_HASH}"
+    local default_cfg="${CFG_BASE_DIR}/behavior/default.json"
+    local override_cfg="${CFG_BASE_DIR}/behavior/overrides/${service_name}.json"
+    local cctv_cfg="${CFG_BASE_DIR}/cctv/cctv_${service_name}.json"
+    local cctv_key="${CFG_BASE_DIR}/cctv/cctv_${service_name}.keys"
 
-CCTV_CFG_HASH="$(sha256sum "${CCTV_CFG}" | awk '{print substr($1,1,12)}')"
-export CCTV_CFG_NAME="${SERVICE_NAME}_cctv_cfg_${CCTV_CFG_HASH}"
+    export DEFAULT_CFG_NAME CCTV_CFG_NAME CCTV_KEY_NAME OVERRIDE_CFG_NAME
+    DEFAULT_CFG_NAME=$(register_config "default_cfg" "${default_cfg}")
+    OVERRIDE_CFG_NAME=$(register_config "${service_name}_override_cfg" "${override_cfg}")
+    CCTV_CFG_NAME=$(register_config "${service_name}_cctv_cfg" "${cctv_cfg}")
+    CCTV_KEY_NAME=$(register_config "${service_name}_cctv_key" "${cctv_key}")
 
-CCTV_KEY_HASH="$(sha256sum "${CCTV_KEY}" | awk '{print substr($1,1,12)}')"
-export CCTV_KEY_NAME="${SERVICE_NAME}_cctv_key_${CCTV_KEY_HASH}"
-# ==========================================================================
+    # Special service for car detection for "kumho" --> this is temporary
+    # before api based config retrieval is implemented
+    if [ "${service_name}" == "kumho_car" ]; then
+        export SERVER="kumho"
+        export LOG_DIR_NAME="spacenorm_obj_detection_car"
+        export PORT1="8082"
+        export PORT2="9003"
+    else
+        export SERVER="${service_name}"
+        export LOG_DIR_NAME="spacenorm_obj_detection"
+        export PORT1="8081"
+        export PORT2="9000"
+    fi
 
-# Create config objects only if missing ============================================
-if ! docker config inspect "${DEFAULT_CFG_NAME}" >/dev/null 2>&1; then
-  docker config create "${DEFAULT_CFG_NAME}" "${DEFAULT_CFG}" >/dev/null
-  echo "[OK] Created config: ${DEFAULT_CFG_NAME}"
-else
-  echo "[OK] Config exists: ${DEFAULT_CFG_NAME}"
-fi
-
-if ! docker config inspect "${OVERRIDE_CFG_NAME}" >/dev/null 2>&1; then
-    docker config create "${OVERRIDE_CFG_NAME}" "${OVERRIDE_CFG}" >/dev/null
-    echo "[OK] Created config: ${OVERRIDE_CFG_NAME}"
-else
-    echo "[OK] Config exists: ${OVERRIDE_CFG_NAME}"
-fi
-
-if ! docker config inspect "${CCTV_CFG_NAME}" >/dev/null 2>&1; then
-  docker config create "${CCTV_CFG_NAME}" "${CCTV_CFG}" >/dev/null
-  echo "[OK] Created config: ${CCTV_CFG_NAME}"
-else
-  echo "[OK] Config exists: ${CCTV_CFG_NAME}"
-fi
-
-if ! docker config inspect "${CCTV_KEY_NAME}" >/dev/null 2>&1; then
-  docker config create "${CCTV_KEY_NAME}" "${CCTV_KEY}" >/dev/null
-  echo "[OK] Created config: ${CCTV_KEY_NAME}"
-else
-  echo "[OK] Config exists: ${CCTV_KEY_NAME}"
-fi
-
-# ==========================================================================
-
-# Special service for car detection for "kumho" --> this is temporary before api based config retrieval is implemented
-if [ "${SERVICE_NAME}" == "kumho_car" ]; then
-    export SERVER="kumho"
-    export LOG_DIR_NAME="spacenorm_obj_detection_car"
-    export PORT1="8082"
-    export PORT2="9003"
-else
-    export SERVER="${SERVICE_NAME}"
-    export LOG_DIR_NAME="spacenorm_obj_detection"
-    export PORT1="8081"
-    export PORT2="9000"
-fi
-
-# Derive SPACENORM_MODEL_PT from the server override config so that servers
-# using a different model (e.g. jaeil_cr uses yolo11x.pt instead of the
-# fine-tuned yolo11x_set01-0148.pt) get the correct TRT engine built.
-# Falls back to the model defined in default.json if the override does not specify one.
-MODEL_PT_REL=$(python3 -c "
+    # Derive SPACENORM_MODEL_PT / SPACENORM_IMGSZ / SPACENORM_USE_TENSORRT from
+    # the server override config (falling back to default.json) so servers
+    # with a different model, resolution, or TensorRT setting (e.g. jaeil_cr
+    # uses yolo11x.pt at imgsz 1280; kumho opts out of TensorRT) get the
+    # correct TRT engine built.
+    local cfg_values
+    mapfile -t cfg_values < <(python3 - "${override_cfg}" "${default_cfg}" <<'PY'
 import json
-def get_model(cfg_path):
-    try:
-        d = json.load(open(cfg_path))
-        return d['detector']['model']['value']
-    except (KeyError, TypeError, FileNotFoundError):
-        return None
+import sys
 
-model = get_model('${OVERRIDE_CFG}') or get_model('${DEFAULT_CFG}')
+
+def load(path):
+    try:
+        return json.load(open(path))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def get(d, *keys):
+    cur = d
+    for k in keys:
+        if not isinstance(cur, dict) or k not in cur:
+            return None
+        cur = cur[k]
+    return cur
+
+
+override, default = load(sys.argv[1]), load(sys.argv[2])
+
+model = get(override, 'detector', 'model', 'value') or get(default, 'detector', 'model', 'value')
 if not model:
-    raise RuntimeError('Could not determine model path from config files')
-print(model)
-")
-export SPACENORM_MODEL_PT="/app/${MODEL_PT_REL}"
-echo "[INFO] SPACENORM_MODEL_PT: ${SPACENORM_MODEL_PT}"
+    raise SystemExit('Could not determine model path from config files')
 
-# Derive SPACENORM_IMGSZ from the server override config so that servers
-# using a different img_size (e.g. jaeil_cr uses 1280) get an engine built
-# at the correct resolution. Falls back to default.json if not overridden.
-export SPACENORM_IMGSZ=$(python3 -c "
-import json
-def get_imgsz(cfg_path):
-    try:
-        d = json.load(open(cfg_path))
-        return d['detector']['img_size']['value']
-    except (KeyError, TypeError, FileNotFoundError):
-        return None
-
-imgsz = get_imgsz('${OVERRIDE_CFG}') or get_imgsz('${DEFAULT_CFG}')
+imgsz = get(override, 'detector', 'img_size', 'value') or get(default, 'detector', 'img_size', 'value')
 if not imgsz:
-    raise RuntimeError('Could not determine img_size from config files')
+    raise SystemExit('Could not determine img_size from config files')
+
+use_trt = get(override, 'detector', 'use_tensorrt', 'value')
+if use_trt is None:
+    use_trt = get(default, 'detector', 'use_tensorrt', 'value')
+if use_trt is None:
+    use_trt = True
+
+print(model)
 print(imgsz)
-")
-echo "[INFO] SPACENORM_IMGSZ: ${SPACENORM_IMGSZ}"
+print(str(use_trt).lower())
+PY
+)
+    export SPACENORM_MODEL_PT="/app/${cfg_values[0]}"
+    export SPACENORM_IMGSZ="${cfg_values[1]}"
+    export SPACENORM_USE_TENSORRT="${cfg_values[2]}"
+    echo "[INFO] ${service_name}: SPACENORM_MODEL_PT=${SPACENORM_MODEL_PT} SPACENORM_IMGSZ=${SPACENORM_IMGSZ} SPACENORM_USE_TENSORRT=${SPACENORM_USE_TENSORRT}"
 
-# Derive SPACENORM_USE_TENSORRT from the server override config so that
-# servers whose GPU/RAM can't complete a TRT engine build (e.g. kumho) can
-# opt out and run directly on the .pt file instead. Defaults to true
-# (unchanged behavior) when absent from both override and default.json.
-export SPACENORM_USE_TENSORRT=$(python3 -c "
-import json
-def get_use_tensorrt(cfg_path):
-    try:
-        d = json.load(open(cfg_path))
-        return d['detector']['use_tensorrt']['value']
-    except (KeyError, TypeError, FileNotFoundError):
-        return None
-
-value = get_use_tensorrt('${OVERRIDE_CFG}')
-if value is None:
-    value = get_use_tensorrt('${DEFAULT_CFG}')
-if value is None:
-    value = True
-print(str(value).lower())
-")
-echo "[INFO] SPACENORM_USE_TENSORRT: ${SPACENORM_USE_TENSORRT}"
-
-envsubst < "${TEMPLATE}" > "${RENDERED}"
+    envsubst < "${TEMPLATE}" > "${rendered}"
+    docker stack deploy --with-registry-auth -c "${rendered}" "${STACK_NAME}"
+    echo "[OK] Deployed service '${service_name}' to stack '${STACK_NAME}'"
+}
 
 # The stack bind-mounts /var/lib/spacenorm_obj_detection on each worker node
 # for caching TensorRT engine files. Docker Swarm requires the source path to
@@ -227,7 +176,32 @@ envsubst < "${TEMPLATE}" > "${RENDERED}"
 echo "[INFO] Ensure /var/lib/spacenorm_obj_detection exists on each worker node."
 echo "       If not, run on the worker: sudo mkdir -p /var/lib/spacenorm_obj_detection"
 
-# docker stack deploy -c "${RENDERED}" "${STACK_NAME}"
-docker stack deploy --with-registry-auth -c "${RENDERED}" "${STACK_NAME}"
+DEPLOYED_SERVICES=()
+FAILED_SERVICES=()
 
-echo "[OK] Deployed stack '${STACK_NAME}'"
+for svc in "${SERVICES_TO_DEPLOY[@]}"; do
+    echo "=== Deploying ${svc} ==="
+    # Each service deploys in its own subshell so a failure partway through
+    # (e.g. a missing override config) aborts only that service's deploy
+    # instead of leaving it half-configured. `set -e` is toggled off in the
+    # parent around the call (not inside an `if`/`&&` condition, where bash
+    # silently ignores -e even inside a nested subshell) so the subshell's
+    # failure is captured instead of aborting the rest of the loop.
+    set +e
+    ( set -euo pipefail; deploy_service "${svc}" )
+    status=$?
+    set -e
+    if [ "${status}" -eq 0 ]; then
+        DEPLOYED_SERVICES+=("${svc}")
+    else
+        echo "[ERROR] Failed to deploy '${svc}' (exit ${status})." >&2
+        FAILED_SERVICES+=("${svc}")
+    fi
+done
+
+echo
+echo "[SUMMARY] Deployed: ${DEPLOYED_SERVICES[*]:-(none)}"
+if [ "${#FAILED_SERVICES[@]}" -gt 0 ]; then
+    echo "[SUMMARY] Failed:   ${FAILED_SERVICES[*]}" >&2
+    exit 1
+fi
