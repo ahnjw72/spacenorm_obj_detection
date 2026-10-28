@@ -29,7 +29,7 @@ echo "============================================"
 # yolov11_training_aws training-results directory, so removing the symlinks
 # first is required to avoid overwriting that file.
 rm -f ./yolo11x_cctv.pt ./yolo11x_coco.pt
-cp -L ./yolo_weights/yolo11x_set01-0151.pt ./yolo11x_cctv.pt
+cp -L ./yolo_weights/yolo11x_set01-0152.pt ./yolo11x_cctv.pt
 cp -L ./yolo_weights/yolo11x.pt ./yolo11x_coco.pt
 
 echo "→ Model file copied (dereferenced)"
