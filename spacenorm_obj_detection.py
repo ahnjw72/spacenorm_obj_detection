@@ -14,6 +14,7 @@ faulthandler.dump_traceback_later(60, repeat=True)
 
 import os, subprocess, threading
 import time
+import random
 import datetime
 import html
 import logging
@@ -853,6 +854,39 @@ def detect_multithreaded(ctx, args_dict):
         detector_threads_active.set(num_keys)
         detector_threads_expected.set(len(cctv_ID))
 
+INITIAL_FETCH_BACKOFF_BASE_SEC = 5
+INITIAL_FETCH_BACKOFF_MAX_SEC = 60
+
+
+def _fetch_initial_dynamic_config(args):
+    """Block until the initial dynamic sensors/CCTV config fetch succeeds.
+
+    fetch_dynamic_config() returns (None, {}) on a transient failure (HTTP
+    error, timeout, JSON error) -- its callers are documented to treat that
+    as "retry", not fatal, and dynamic_config_refresh_loop already retries
+    forever on a timer for every fetch AFTER the first one succeeds. This
+    gives the first fetch the same tolerance via exponential backoff
+    (capped) with jitter, instead of the previous sys.exit(1): that exit
+    only killed this background thread, not the process (Flask/metrics
+    stayed up), so a single transient gateway error at startup -- e.g. the
+    gateway's DB connection pool briefly exhausted by many sites
+    reconnecting at once -- left the container looking healthy to Swarm
+    forever with zero detector threads and no way to recover on its own.
+    The jitter spreads out retries across sites hitting the same transient
+    failure together, rather than retrying in lockstep.
+    """
+    attempt = 0
+    while True:
+        dynamic_cfg, failed_statuses = fetch_dynamic_config(args)
+        if dynamic_cfg is not None:
+            return dynamic_cfg, failed_statuses
+        delay = min(INITIAL_FETCH_BACKOFF_BASE_SEC * (2 ** attempt), INITIAL_FETCH_BACKOFF_MAX_SEC)
+        delay *= random.uniform(0.8, 1.2)
+        logger.error(f"initial dynamic config fetch failed -- retrying in {delay:.1f}s (attempt {attempt + 1})")
+        time.sleep(delay)
+        attempt += 1
+
+
 def detector_YOLO_multithreaded(args):
     logger.info("detector_YOLO_multithreaded()...")
 
@@ -866,10 +900,7 @@ def detector_YOLO_multithreaded(args):
     config_method = getattr(args, "config_method", "static")
 
     if config_method == "dynamic":
-        dynamic_cfg, failed_statuses = fetch_dynamic_config(args)
-        if dynamic_cfg is None:
-            logger.error("ERROR: initial dynamic config fetch failed -- cannot start without an initial sensor set")
-            sys.exit(1)
+        dynamic_cfg, failed_statuses = _fetch_initial_dynamic_config(args)
         cctv_ID.update(dynamic_cfg)
         for key, entry in dynamic_cfg.items():
             _publish_camera_info(key, entry, "dynamic")
