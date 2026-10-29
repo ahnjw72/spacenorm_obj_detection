@@ -469,7 +469,14 @@ def detector_per_cam(cam, key, model, imgsz, args, vis, yolo_lock, detect_csv_wr
                             # its own boxes on top.
                             img_for_AR = vis.draw_bboxes(img.copy(), boxes, confs, clss, types, motionesses)
                             
-                            image_filename = f'./{PKG_NAME}/AR_images/{key}_{tic}.jpg'
+                            # key can contain '/' (e.g. "... S/G Robot #2"), which splits
+                            # the f-string below into a path with a nonexistent
+                            # subdirectory -- cv2.imwrite() then fails silently (no
+                            # exception, just no file written) and the open() a few
+                            # lines down throws FileNotFoundError, silently dropping the
+                            # snapshot despite the report having already succeeded.
+                            safe_key = key.replace('/', '_')
+                            image_filename = f'./{PKG_NAME}/AR_images/{safe_key}_{tic}.jpg'
                             cv2.imwrite(image_filename, img_for_AR)
             
                             logger.info(f"[{key}] --> AR comment with files: {image_filename}")
