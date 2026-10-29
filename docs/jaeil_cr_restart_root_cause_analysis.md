@@ -166,13 +166,79 @@ r8169 0000:06:00.0: can't disable ASPM; OS doesn't have ASPM control
 
 ### 권장 후속 조치
 
-- 재발 여부 모니터링: 38일 가동 중 이번이 유일한 발생이므로 아직 상시 문제로 단정하기는
-  이르나, 재발 시 아래 조치를 검토.
-- **EEE(Energy Efficient Ethernet) 비활성화** (재부팅 불필요, 우선 시도 가능):
+- ~~재발 여부 모니터링: 38일 가동 중 이번이 유일한 발생이므로 아직 상시 문제로 단정하기는
+  이르나, 재발 시 아래 조치를 검토.~~ **(2026-10-28 업데이트) 재발 확인됨** — 아래 §
+  "2026-10-28 재발 및 EEE 비활성화 적용" 참고. 상시 발생은 아니지만 일회성도 아님이 확인됨.
+- **EEE(Energy Efficient Ethernet) 비활성화** (재부팅 불필요, 우선 시도 가능) —
+  **2026-10-28 적용 완료**:
   ```bash
   sudo ethtool --set-eee eno1 eee off
   ```
-- **ASPM 비활성화** (재부팅 필요):
+- **ASPM 비활성화** (재부팅 필요, 미적용 — 재발 시 검토):
   - 커널 부트 파라미터에 `pcie_aspm=off` 추가, 또는
   - BIOS/UEFI에서 해당 PCIe 슬롯의 ASPM 설정을 끄기
 - 재발이 잦아질 경우 `r8169` 드라이버/커널 업데이트, 혹은 다른 NIC로 교체도 고려 가능.
+
+## 2026-10-28 재발 및 EEE 비활성화 적용
+
+### 증상
+
+같은 "NETDEV WATCHDOG: transmit queue 0 timed out" 패턴이 **16:17~16:42 KST 사이 5회**
+재발함 (`journalctl -k`로 확인). 매니저 자신도 같은 구간에 `healthscore: N (connectivity
+issues)`를 반복 보고함. 이번에는 cym(10.144.0.11), jaeil_cr(10.144.0.12),
+yujin(10.144.0.14) 세 사이트가 거의 동시에 `left gossip cluster` → `joined gossip
+cluster`를 반복하며 컨테이너가 교체됨 — 7월 사건과 동일한 "매니저 NIC 장애 → 다중 사이트
+동시 재시작" 메커니즘.
+
+### 연쇄 2차 장애 — 게이트웨이 커넥션 풀 고갈로 인한 "좀비" 컨테이너
+
+이번에는 여기서 끝나지 않고 2차 장애로 이어짐: 여러 사이트의 컨테이너가 거의 동시에
+재시작되면서 모두 `dev.contextmatter.com/api/v1/vision_nodes/sync_data`를 동시에
+호출했고, 게이트웨이가 `500 Internal Server Error: could not obtain a connection from
+the pool`로 응답함 (게이트웨이 자체의 DB 커넥션 풀 고갈, 이 리포지토리와 무관한 서버
+측 문제). 하필 이 순간에 최초 기동(dynamic config 최초 fetch)을 시도하던 cym, jaeil_cr,
+yujin, kumho 네 사이트가 모두 실패함.
+
+문제는 당시 코드가 이 실패를 `sys.exit(1)`로 처리했는데, 이 호출이 메인 스레드가 아닌
+백그라운드 스레드(`detector_YOLO_multithreaded`) 안에서 일어나 **그 스레드만 조용히
+죽고 프로세스 자체는 죽지 않음** — Flask(`:8081`)와 Prometheus 메트릭 서버(`:9000`)는
+계속 응답했기 때문에 `docker service ls`는 계속 `1/1`로 표시했지만, 실제 카메라/디텍터
+스레드는 0개로 영구히 멈춘 "좀비" 상태가 됨. 자체적으로 재시도하는 로직이 전혀 없어서
+수동으로 `docker service update --force`하기 전까지 스스로 회복되지 않았음(cym/jaeil_cr/
+yujin은 약 3시간, kumho는 재시도 끝에 우연한 SIGSEGV로 재시작되어 더 짧게 좀비 상태였음).
+
+Grafana Fleet Overview의 "Up/down per site" 패널은 `up{job="spacenorm_obj_detection"}`
+(Prometheus 스크레이프 성공 여부)만 보므로, 포트가 응답하는 한 "UP"으로 표시되어 이
+좀비 상태를 드러내지 못함 — 실제로는 `spacenorm_detector_threads_active`가 0인데도.
+
+### 코드 수정 — 초기 fetch 재시도/백오프
+
+`spacenorm_obj_detection.py`의 `_fetch_initial_dynamic_config()` (커밋 `9e1e329`)로
+수정: 최초 fetch 실패 시 `sys.exit(1)` 대신 지수 백오프(5초 시작, 2배씩 증가, 60초
+상한, ±20% 지터)로 무한 재시도하도록 변경. 이는 `dynamic_config_refresh_loop`이 최초
+fetch 이후의 모든 재시도에 이미 적용하던 방식과 동일한 관용도를 초기 fetch에도
+부여한 것. 지터는 여러 사이트가 같은 순간에 동시 재시도하여 게이트웨이를 다시 고갈시키는
+것을 피하기 위함.
+
+### 조치 요약
+
+| 조치 | 범위 | 상태 |
+|---|---|---|
+| `sudo ethtool --set-eee eno1 eee off` + `disable-eee-eno1.service`(재부팅 시 자동 재적용) | 매니저(`ahnjw-GTEC-Ubuntu`)의 `eno1` | 완료 (2026-10-28) |
+| `_fetch_initial_dynamic_config()` 재시도/백오프 (커밋 `9e1e329`) | `spacenorm_obj_detection.py`, 전체 사이트 공통 코드 | 커밋 완료 — **배포된 이미지에는 아직 미반영** (이미지가 digest로 고정되어 있어 재빌드+재배포 필요) |
+
+### 미해결 — kumho의 별개 SIGSEGV (exit 139)
+
+같은 사건 와중에 kumho는 좀비 상태에서 약 74분 후 SIGSEGV(exit 139)로 완전히
+죽었다가 재시작됨. `faulthandler.enable()`이 설치되어 있음에도 트레이스백이 전혀
+출력되지 않았고, 매니저·khpi 노드의 커널 로그(`journalctl -k`)와 전체 journal
+(`journalctl`) 모두 해당 시각(2026-10-28 17:56:48 KST)에 **관련 항목 없음** —
+OOM-kill, GPU Xid 에러, 커널 개입 모두 배제됨. 같은 노드/GPU를 공유하는
+`kumho_car`는 같은 구간 내내 정상 동작해 노드/GPU 전역 장애 가능성도 낮춤. 원인 불명,
+1회성 사건으로 기록만 하고 추가 조치는 보류(코어덤프 수집 설정은 재발 시 검토).
+
+## Cross-references
+
+- `docs/prometheus_grafana_monitoring_plan.md` §2 — `spacenorm_detector_threads_active`/
+  `_expected` 메트릭 정의 (좀비 상태를 간접적으로 드러내는 유일한 신호; `up` 메트릭만으로는
+  드러나지 않음)
