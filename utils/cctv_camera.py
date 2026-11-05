@@ -20,6 +20,26 @@ import time
 from .gateway_api import Gateway # spacenorm Gateway API - ahnjw,2020.11.11
 from .metrics import camera_reconnect_attempts_total
 
+# How long a camera's decoded frame must stay byte-identical before grab_img()
+# treats the stream as silently frozen and forces a reconnect. cap.read() can
+# keep returning success=True with the same stale frame forever if an RTSP
+# source stalls (encoder hang, keep-alive with no new frames) without
+# dropping the connection -- confirmed live: a camera kept serving the exact
+# same frame for days with no read error, while every existing health signal
+# (thread-alive, last-frame-timestamp) only checks that cap.read() succeeded,
+# not that its content changed.
+STALE_FRAME_TIMEOUT_SEC = 60
+# Downsample stride for the staleness fingerprint. A real camera frame never
+# repeats bit-for-bit across reads (sensor noise and compression artifacts
+# differ even on a static scene), so comparing a sparse sample is enough to
+# detect "exact same frame" with no realistic false positives, at a fraction
+# of the cost of hashing/copying the full-resolution image on every read.
+STALE_FRAME_SAMPLE_STRIDE = 16
+
+
+def _frame_fingerprint(img_handle):
+    return img_handle[::STALE_FRAME_SAMPLE_STRIDE, ::STALE_FRAME_SAMPLE_STRIDE].copy()
+
 #from queue import Queue
 #IMG_QUEUE_SIZE = 1
 
@@ -622,6 +642,23 @@ def grab_img(cam):
                 logger.debug(f"[{key}] img_handle is None, try to read again after sleeping for a short time ({sleep_sec} seconds)...")
                 time.sleep(sleep_sec)  # Sleep before retrying to read
             else:
+                fingerprint = _frame_fingerprint(img_handle)
+                now = time.time()
+                if cam.last_frame_signature is not None and np.array_equal(fingerprint, cam.last_frame_signature):
+                    if cam.frame_unchanged_since is None:
+                        cam.frame_unchanged_since = now
+                    elif now - cam.frame_unchanged_since > STALE_FRAME_TIMEOUT_SEC:
+                        logger.warning(f"[{key}] frame unchanged for over {STALE_FRAME_TIMEOUT_SEC}s despite cap.read() succeeding -- stream appears frozen, forcing reconnect.")
+                        camera_reconnect_attempts_total.labels(camera=key).inc()
+                        cam.cap.release()
+                        cam.cap = None
+                        cam.last_frame_signature = None
+                        cam.frame_unchanged_since = None
+                        continue
+                else:
+                    cam.last_frame_signature = fingerprint
+                    cam.frame_unchanged_since = None
+
                 cam.img_handle = img_handle
 
     if cam.cap is not None:
@@ -661,6 +698,8 @@ class RTSP_Camera():
         self.last_read_enter_ts = 0.0
         self.last_read_return_ts = 0.0
         self.last_frame_ts = 0.0
+        self.last_frame_signature = None  # staleness watchdog: see _frame_fingerprint()
+        self.frame_unchanged_since = None
         self.read_in_progress = False
         self.read_hang_reported = False
         self.read_hang_count = 0
