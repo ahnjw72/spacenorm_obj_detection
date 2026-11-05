@@ -58,7 +58,7 @@
           "legendFormat": "{{camera}}"
         }
       ],
-      "description": "A fast-climbing count here is the early-warning signal that was missing before the jaeil_cr fd-leak crash."
+      "description": "A fast-climbing count here is the early-warning signal for the RTSP connection or streaming quality."
     },
     {
       "id": 3,

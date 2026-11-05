@@ -256,7 +256,7 @@ configs:
 
   grafana_dashboard_per_camera:
     external: true
-    name: grafana_dashboard_per_camera_d3f72dd6ae6c
+    name: grafana_dashboard_per_camera_ddd2ad4725d3
 
   grafana_dashboard_cctv_config:
     external: true
