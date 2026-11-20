@@ -33,7 +33,6 @@ from flask import Flask, Response
 from .utils.yolo_classes import get_cls_dict
 from .utils.cctv_camera import RTSP_Camera
 from .utils.visualization import BBoxVisualization
-from .utils.spacenorm_api import Spacenorm_API
 from .utils.kakao_messaging import refreshToken, kakaoMsgSend
 
 from .utils.post_processing import remove_outside_ROI, select_car_related_results, filter_only_person, filter_small_objects, check_bb_on_background, draw_roi_overlay
